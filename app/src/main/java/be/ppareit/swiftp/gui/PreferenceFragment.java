@@ -26,6 +26,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.net.Uri;
@@ -77,9 +78,17 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
         TwoStatePreference runningPref = findPref("running_switch");
         updateRunningState();
         runningPref.setOnPreferenceChangeListener((preference, newValue) -> {
+            SharedPreferences sp = this.getActivity().getSharedPreferences("be.ppareit.swiftp",
+                    Context.MODE_PRIVATE);
             if ((Boolean) newValue) {
+                // Auto start on boot by default
+                sp.edit().remove("StopAutoStartOnTile").apply();
+                // Start the ftp server
                 FsService.start();
             } else {
+                // Stop auto starting on boot
+                sp.edit().putBoolean("StopAutoStartOnTile", true).apply();
+                // Stop the ftp server
                 FsService.stop();
             }
             return true;

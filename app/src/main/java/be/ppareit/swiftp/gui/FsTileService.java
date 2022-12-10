@@ -1,7 +1,9 @@
 package be.ppareit.swiftp.gui;
 
 import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
@@ -22,10 +24,14 @@ public class FsTileService extends TileService {
 
     @Override
     public void onClick() {
-        if (getQsTile().getState() == Tile.STATE_INACTIVE)
+        SharedPreferences sp = getSharedPreferences("be.ppareit.swiftp", Context.MODE_PRIVATE);
+        if (getQsTile().getState() == Tile.STATE_INACTIVE) {
             FsService.start();
-        else if (getQsTile().getState() == Tile.STATE_ACTIVE)
+            sp.edit().remove("StopAutoStartOnTile").apply();
+        } else if (getQsTile().getState() == Tile.STATE_ACTIVE) {
             FsService.stop();
+            sp.edit().putBoolean("StopAutoStartOnTile", true).apply();
+        }
     }
 
     @Override
@@ -56,8 +62,16 @@ public class FsTileService extends TileService {
             }
             tile.setLabel(address.getHostAddress() + ":" + FsSettings.getPortNumber());
         } else {
-            tile.setState(Tile.STATE_INACTIVE);
-            tile.setLabel(getString(R.string.swiftp_name));
+            // todo Do it in a better way.
+            // Quickly coded auto start on reboot hack (only auto on some devices)
+            // Allow user to force stop it via the tile & also allow the stop tile to work
+            SharedPreferences sp = getSharedPreferences("be.ppareit.swiftp", Context.MODE_PRIVATE);
+            if (!sp.getBoolean("StopAutoStartOnTile", false)) FsService.start();
+
+            if (!FsService.isRunning()) {
+                tile.setState(Tile.STATE_INACTIVE);
+                tile.setLabel(getString(R.string.swiftp_name));
+            }
         }
         tile.updateTile();
     }
