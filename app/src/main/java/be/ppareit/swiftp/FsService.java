@@ -30,7 +30,9 @@ import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
@@ -86,6 +88,8 @@ public class FsService extends Service implements Runnable {
     private PowerManager.WakeLock wakeLock;
     private WifiLock wifiLock = null;
 
+    private static Handler handler = null;
+    private int delayCount = 0;
 
     /**
      * Check to see if the FTP Server is up and running
@@ -237,10 +241,30 @@ public class FsService extends Service implements Runnable {
 
         if (!isConnectedToLocalNetwork()) {
             Log.w(TAG, "run: There is no local network, bailing out");
-            stopSelf();
-            sendBroadcast(new Intent(ACTION_FAILEDTOSTART));
+            handler = new Handler(getMainLooper()) {
+                @Override
+                public void handleMessage(Message msg) {
+                    super.handleMessage(msg);
+                    // Fix app never starting on boot when device is rebooted while away from wifi
+                    // or while wifi is disabled. Attempt for 24 hours and then stop to avoid wasting
+                    // battery.
+                    if (isConnectedToLocalNetwork()) {
+                        FsService.start();
+                    } else {
+                        if (delayCount < 24) {
+                            // Try hourly for 1 day. After that it will be manual start by user.
+                            handler.sendMessageDelayed(handler.obtainMessage(), 3600000);
+                            delayCount++;
+                        }
+                    }
+                }
+            };
+            serverThread = null;
+            handler.sendMessageDelayed(handler.obtainMessage(), 3600000);
             return;
         }
+
+        if (handler != null) handler = null;
 
         // Initialization of wifi, set up the socket
         try {
