@@ -251,16 +251,16 @@ public class FsService extends Service implements Runnable {
                     if (isConnectedToLocalNetwork()) {
                         FsService.start();
                     } else {
-                        if (delayCount < 24) {
+                        if (delayCount < 48) {
                             // Try hourly for 1 day. After that it will be manual start by user.
-                            handler.sendMessageDelayed(handler.obtainMessage(), 3600000);
+                            handler.sendMessageDelayed(handler.obtainMessage(), 1800000);
                             delayCount++;
                         }
                     }
                 }
             };
             serverThread = null;
-            handler.sendMessageDelayed(handler.obtainMessage(), 3600000);
+            handler.sendMessageDelayed(handler.obtainMessage(), 1800000);
             return;
         }
 
