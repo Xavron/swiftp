@@ -225,6 +225,7 @@ public class FsService extends Service implements Runnable {
             wakeLock.release();
             wakeLock = null;
         }
+        if (handler != null) handler = null;
         Log.d(TAG, "FTPServerService.onDestroy() finished");
     }
 
