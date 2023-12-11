@@ -71,7 +71,7 @@ abstract public class CmdAbstractStore extends FtpCmd {
             }
 
             try {
-                if (storeFile.exists()) {
+                if (storeFile.exists()) { // todo does this even work here for DocumentFile or always false?
                     if (!append && sessionThread.offset < 0) {
                         if (!FileUtil.deleteFile(storeFile, App.getAppContext())) {
                             errString = "451 Couldn't truncate file\r\n";
@@ -83,15 +83,10 @@ abstract public class CmdAbstractStore extends FtpCmd {
                             MediaUpdater.notifyFileDeleted(storeFile.getPath());
                         }
                     }
-                }
-
-                if (!storeFile.exists()) {
+                } else {
                     if (Util.useScopedStorage()) {
                         final String mime = "application/octet-stream";
-                        //final URI fileUri = storeFile.toURI();
-                        //final URL url = fileUri.toURL();
-                        //mime = url.openConnection().getContentType(); // sometimes makes exe's into html files
-                        docStoreFile = FileUtil.mkfile(storeFile, App.getAppContext(), mime);
+                        docStoreFile = FileUtil.mkfile(storeFile, mime);
                         if(docStoreFile == null){
                             errString = "451 Couldn't open file \"" + param + "\" aka \""
                                     + storeFile.getCanonicalPath() + "\" for writing\r\n";

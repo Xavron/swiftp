@@ -31,8 +31,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-import android.net.Uri;
-
 import androidx.documentfile.provider.DocumentFile;
 
 import net.vrallev.android.cat.Cat;
@@ -69,8 +67,7 @@ public class CmdLIST extends CmdAbstractListing implements Runnable {
                 fileToList = sessionThread.getWorkingDir();
                 if (Util.useScopedStorage()) {
                     final String clientPath = fileToList.getPath();
-                    Uri uri = FileUtil.getFullCWDUri("", clientPath);
-                    docFileToList = FileUtil.getDocumentFileFromUri(uri);
+                    docFileToList = FileUtil.getDocumentFile("", clientPath);
                 }
             } else {
                 if (param.contains("*")) {
