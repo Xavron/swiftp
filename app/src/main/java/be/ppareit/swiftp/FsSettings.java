@@ -21,7 +21,9 @@ along with SwiFTP.  If not, see <http://www.gnu.org/licenses/>.
 package be.ppareit.swiftp;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.UriPermission;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -55,14 +57,15 @@ public class FsSettings {
             String username = sp.getString("username", context.getString(R.string.username_default));
             String password = sp.getString("password", context.getString(R.string.password_default));
             String chroot = sp.getString("chrootDir", "");
+            String uriString = sp.getString("uriString", "");
             if (username == null || password == null || chroot == null) {
                 username = context.getString(R.string.username_default);
                 password = context.getString(R.string.password_default);
                 chroot = "";
             }
-            return new ArrayList<>(Collections.singletonList(new FtpUser(username, password, chroot)));
+            return new ArrayList<>(Collections.singletonList(new FtpUser(username, password, chroot, uriString)));
         } else {
-            FtpUser defaultUser = new FtpUser(context.getString(R.string.username_default), context.getString(R.string.password_default), "\\");
+            FtpUser defaultUser = new FtpUser(context.getString(R.string.username_default), context.getString(R.string.password_default), "\\", "");
             return new ArrayList<>(Collections.singletonList(defaultUser));
         }
     }
@@ -86,7 +89,7 @@ public class FsSettings {
         sp.edit().putString("users", gson.toJson(userList)).apply();
     }
 
-    public static void removeUser(String username) {
+    public static void removeUser(String username, boolean actualDelete) {
         SharedPreferences sp = getSharedPreferences();
         Gson gson = new Gson();
         List<FtpUser> users = getUsers();
@@ -97,11 +100,32 @@ public class FsSettings {
             }
         }
         users.removeAll(found);
+        if (actualDelete /*Don't do this on modify.*/) {
+            for (FtpUser user : found) {
+                removeUserUriPerm(user);
+            }
+        }
         sp.edit().putString("users", gson.toJson(users)).apply();
     }
 
+    private static void removeUserUriPerm(FtpUser user) {
+        final String userUriString = user.getUriString();
+        if (userUriString == null || userUriString.isEmpty()) return;
+        List<UriPermission> list = App.getAppContext().getContentResolver().getPersistedUriPermissions();
+        for (UriPermission uriToRemove : list) {
+            if (uriToRemove == null) continue;
+            final String s = uriToRemove.getUri().getPath();
+            if (s == null) continue;
+            if (s.equals(userUriString)) {
+                App.getAppContext().getContentResolver().releasePersistableUriPermission(uriToRemove.getUri(),
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                break;
+            }
+        }
+    }
+
     public static void modifyUser(String username, FtpUser newUser) {
-        removeUser(username);
+        removeUser(username, false);
         addUser(newUser);
     }
 

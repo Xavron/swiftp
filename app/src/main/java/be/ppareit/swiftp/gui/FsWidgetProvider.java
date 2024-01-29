@@ -28,6 +28,7 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 import android.widget.RemoteViews;
@@ -102,7 +103,11 @@ public class FsWidgetProvider extends AppWidgetProvider {
                     .setShowWhen(false)
                     .setChannelId(channelId)
                     .build();
-            startForeground(33, notification);
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(33, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+            } else {
+                startForeground(33, notification);
+            }
             // depending on whether or not the server is running, choose correct properties
             final String action;
             final int drawable;
@@ -131,7 +136,7 @@ public class FsWidgetProvider extends AppWidgetProvider {
                         startIntent, PendingIntent.FLAG_IMMUTABLE);
             } else {
                 pendingIntent = PendingIntent.getService(this, 0,
-                        startIntent, 0);
+                        startIntent, PendingIntent.FLAG_IMMUTABLE);
             }
             RemoteViews views = new RemoteViews(getPackageName(), R.layout.widget_layout);
             // setup the info on the widget

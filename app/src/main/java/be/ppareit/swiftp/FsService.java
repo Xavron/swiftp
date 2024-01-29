@@ -25,10 +25,13 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
+import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
@@ -147,7 +150,11 @@ public class FsService extends Service implements Runnable {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(FsNotification.NOTIFICATION_ID, FsNotification.setupNotification(getApplicationContext()));
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(FsNotification.NOTIFICATION_ID, FsNotification.setupNotification(getApplicationContext()), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+        } else {
+            startForeground(FsNotification.NOTIFICATION_ID, FsNotification.setupNotification(getApplicationContext()));
+        }
 
         //https://developer.android.com/reference/android/app/Service.html
         //if there are not any pending start commands to be delivered to the service, it will be called with a null intent object,
@@ -469,6 +476,12 @@ public class FsService extends Service implements Runnable {
                 }
             }
             for (SessionThread removeThread : toBeRemoved) {
+                if (Util.useScopedStorage()) {
+                    // Clean up for scoped multi user
+                    if (SessionThread.getUriString(removeThread.getName()) != null) {
+                        SessionThread.removeUriString(removeThread.getName());
+                    }
+                }
                 sessionThreads.remove(removeThread);
             }
 
