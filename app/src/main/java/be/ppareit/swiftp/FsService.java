@@ -179,7 +179,8 @@ public class FsService extends Service implements Runnable {
         if (serverThread != null) {
             // Fix ANR: There was a wait loop here for 10 seconds but a reason for that is unknown.
             // There is no clear reason for the timeout as its working fine without it. What was the
-            // original intent? Does the reason even still exist today?
+            // original intent? Does the reason even still exist today? Why 10s and not 1s? It was
+            // maybe cleaning up? Why? What situation was this?
             Log.e(TAG, "Server thread already exists: just start");
             return START_STICKY;
         }
