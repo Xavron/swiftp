@@ -179,7 +179,7 @@ public class FsService extends Service implements Runnable {
         if (serverThread != null) {
             // Fix ANR: There was a wait loop here for a 10 seconds supposed cleanup. That num was
             // made up including the 10s in onDestroy where it may or may not go null. Seen as never
-            // going null here. Removed loop due to ANR.
+            // going null here (during the loop). Removed loop due to ANR.
             Log.e(TAG, "Server thread already exists: just start");
             return START_STICKY;
         }
