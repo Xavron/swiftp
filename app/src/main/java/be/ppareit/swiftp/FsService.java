@@ -197,6 +197,8 @@ public class FsService extends Service implements Runnable {
             Log.w(TAG, "Stopping with null serverThread");
             return;
         }
+        // Made up cleanup with a made up num. There's nothing here that says a fictional 10s will even
+        // do anything. However, am leaving as is since it does not cause an ANR or other negative event.
         serverThread.interrupt();
         try {
             serverThread.join(10000); // wait 10 sec for server thread to finish
