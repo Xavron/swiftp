@@ -199,6 +199,14 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
             return true;
         });
 
+        final CheckBoxPreference batterySaver = findPref("batterySaver");
+        batterySaver.setTitle("Battery saver test");
+        batterySaver.setSummary("Lower battery use. Some weirdness at this time as its a super quick code test such as during wifi changes, but on idle, app drops off of Android battery chart as its < 0.1%. YMMV for various reasons. NOTE: You *must* manually restart server again after toggling if its already running.");
+        batterySaver.setOnPreferenceChangeListener((preference, newValue) -> {
+            sp.edit().putBoolean("BatterSaverTest", (boolean) newValue).apply();
+            return true;
+        });
+
         ListPreference themePref = findPref("theme");
         themePref.setSummary(themePref.getEntry());
         themePref.setOnPreferenceChangeListener((preference, newValue) -> {

@@ -25,6 +25,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -38,6 +39,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Gravity;
 import android.widget.Toast;
@@ -84,6 +86,7 @@ public class FsService extends Service implements Runnable {
     // because we cannot wait forever in accept() if we want to be able
     // to receive an exit signal and cleanly exit.
     public static final int WAKE_INTERVAL_MS = 1000; // milliseconds
+    public static final int WAKE_INTERVAL_MS_SAVER = 60000;
 
     private TcpListener wifiListener = null;
     private final List<SessionThread> sessionThreads = new ArrayList<>();
@@ -281,13 +284,21 @@ public class FsService extends Service implements Runnable {
             return;
         }
 
-        // @TODO: when using ethernet, is it needed to take wifi lock?
-        takeWifiLock();
-        takeWakeLock();
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(App.getAppContext());
+        final boolean batterySaver = sp.getBoolean("batterySaver", false);
+        if (!batterySaver) {
+            // @TODO: when using ethernet, is it needed to take wifi lock?
+            takeWifiLock();
+            takeWakeLock();
+        }
 
         // A socket is open now, so the FTP server is started, notify rest of world
         Log.i(TAG, "Ftp Server up and running, broadcasting ACTION_STARTED");
         sendBroadcast(new Intent(ACTION_STARTED));
+
+        final int FINAL_INTERVAL;
+        if (batterySaver) FINAL_INTERVAL = WAKE_INTERVAL_MS_SAVER;
+        else FINAL_INTERVAL = WAKE_INTERVAL_MS;
 
         while (!shouldExit) {
             if (wifiListener != null) {
@@ -309,7 +320,7 @@ public class FsService extends Service implements Runnable {
             try {
                 // TODO: think about using ServerSocket, and just closing
                 // the main socket to send an exit signal
-                Thread.sleep(WAKE_INTERVAL_MS);
+                Thread.sleep(FINAL_INTERVAL);
             } catch (InterruptedException e) {
                 Log.d(TAG, "Thread interrupted");
             }
