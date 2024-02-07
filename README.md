@@ -1,11 +1,6 @@
-FTP Server (swiftp)
+forBackups branch
 ===================
 
-<a href="https://f-droid.org/packages/be.ppareit.swiftp_free/" target="_blank">
-<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80"/></a>
-<a href="https://play.google.com/store/apps/details?id=be.ppareit.swiftp" target="_blank">
-<img src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png" alt="Get it on Google Play" height="80"/></a>
+forBackups is my main branch of Swiftp that I push out all finished updates to. It may often include newer changes and fixes.
 
-User documentation: see http://ppareit.github.io/swiftp/
-
-Developer documentation: see file HACKING
+2024 Feb: It has Android 11+ storage improvements, multi user with multi storage location use, and a test battery saver setting that heavily drops battery usage.
