@@ -174,4 +174,5 @@ https://github.com/ppareit/swiftp/issues .\n\n
     <string name="bs_deep">ГЛИБОКИЙ</string>
     <string name="manage_anon_label">Керувати анонімно…</string>
     <string name="manage_log_label">Журнал…</string>
+    <string name="shortcut_on">Швидко</string>
 </resources>

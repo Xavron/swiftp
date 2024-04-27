@@ -201,4 +201,5 @@ na stronie https://github.com/ppareit/swiftp/issues .\n\n
     <string name="bs_deep">GŁĘBOKO</string>
     <string name="manage_anon_label">Zarządzaj anonimowo…</string>
     <string name="manage_log_label">Dziennik…</string>
+    <string name="shortcut_on">Szybko</string>
 </resources>

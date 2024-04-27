@@ -136,4 +136,5 @@ https://github.com/ppareit/swiftp/issues .\n\n
     <string name="bs_deep">ДУБОКО</string>
     <string name="manage_anon_label">Управљајте анонимно…</string>
     <string name="manage_log_label">Пријава…</string>
+    <string name="shortcut_on">Брзо</string>
 </resources>

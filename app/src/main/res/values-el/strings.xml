@@ -152,5 +152,6 @@ https://github.com/ppareit/swiftp/issues .\n\n
     <string name="bs_high">ΥΨΗΛΟΣ</string>
     <string name="bs_low">ΧΑΜΗΛΟΣ</string>
     <string name="bs_deep">ΒΑΘΥΣ</string>
+    <string name="shortcut_on">Γρήγορη ενεργοποίηση</string>
 </resources>
 

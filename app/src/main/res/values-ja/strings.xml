@@ -136,4 +136,5 @@ https://github.com/ppareit/swiftp/issues を参照してください。\n\n
     <string name="bs_deep">深い</string>
     <string name="manage_anon_label">匿名で管理する…</string>
     <string name="manage_log_label">ログ…</string>
+    <string name="shortcut_on">早速</string>
 </resources>

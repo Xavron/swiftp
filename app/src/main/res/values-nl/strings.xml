@@ -104,4 +104,5 @@ van de volgende versie staan op https://github.com/ppareit/swiftp/issues .\n\n
     <string name="bs_deep">DIEP</string>
     <string name="manage_anon_label">Beheer anoniem…</string>
     <string name="manage_log_label">Logboek…</string>
+    <string name="shortcut_on">Snel aan</string>
 </resources>

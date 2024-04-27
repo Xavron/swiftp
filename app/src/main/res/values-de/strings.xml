@@ -98,4 +98,5 @@ Gemeldete Probleme und Verbesserungsvorschläge sind unter https://github.com/pp
     <string name="bs_deep">TIEF</string>
     <string name="manage_anon_label">Anonym verwalten…</string>
     <string name="manage_log_label">Protokoll…</string>
+    <string name="shortcut_on">Schnell weiter</string>
 </resources>

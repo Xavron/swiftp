@@ -37,6 +37,9 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.pm.ShortcutInfoCompat;
+import androidx.core.content.pm.ShortcutManagerCompat;
+import androidx.core.graphics.drawable.IconCompat;
 
 import net.vrallev.android.cat.Cat;
 
@@ -44,9 +47,9 @@ import java.util.Arrays;
 
 import be.ppareit.swiftp.App;
 import be.ppareit.swiftp.BuildConfig;
+import be.ppareit.swiftp.FsService;
 import be.ppareit.swiftp.FsSettings;
 import be.ppareit.swiftp.R;
-import be.ppareit.swiftp.Util;
 
 /**
  * This is the main activity for swiftp, it enables the user to start the server service
@@ -83,6 +86,19 @@ public class MainActivity extends AppCompatActivity {
         getFragmentManager().beginTransaction()
                 .replace(android.R.id.content, new PreferenceFragment())
                 .commit();
+
+        if (VERSION.SDK_INT >= 25) {
+            Intent intent = new Intent("Intent.QuickOn", null, MainActivity.this, MainActivity.class);
+            ShortcutInfoCompat shortcut = new ShortcutInfoCompat.Builder(getApplicationContext(), "id1forever")
+                    .setShortLabel(getString(R.string.shortcut_on))
+                    .setIcon(IconCompat.createWithResource(getApplicationContext(), R.drawable.widget_on))
+                    .setIntent(intent)
+                    .build();
+            ShortcutManagerCompat.pushDynamicShortcut(getApplicationContext(), shortcut);
+            if (getIntent().getAction() != null && getIntent().getAction().equals("Intent.QuickOn")) {
+                FsService.start();
+            }
+        }
     }
 
     private boolean haveReadWritePermissions() {
