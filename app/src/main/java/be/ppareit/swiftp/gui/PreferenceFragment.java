@@ -47,11 +47,9 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
-import androidx.documentfile.provider.DocumentFile;
 
 import net.vrallev.android.cat.Cat;
 
-import java.io.File;
 import java.net.InetAddress;
 import java.util.List;
 
@@ -62,7 +60,7 @@ import be.ppareit.swiftp.FsSettings;
 import be.ppareit.swiftp.R;
 import be.ppareit.swiftp.Util;
 import be.ppareit.swiftp.server.FtpUser;
-import be.ppareit.swiftp.utils.FileUtil;
+import be.ppareit.swiftp.utils.Logging;
 
 /**
  * This is the main activity for swiftp, it enables the user to start the server service
@@ -114,6 +112,12 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
         updateUsersPref();
         manageUsersPref.setOnPreferenceClickListener((preference) -> {
             startActivity(new Intent(getActivity(), ManageUsersActivity.class));
+            return true;
+        });
+
+        Preference manageAnonPref = findPref("manage_anon");
+        manageAnonPref.setOnPreferenceClickListener((preference) -> {
+            startActivity(new Intent(getActivity(), ManageAnonActivity.class));
             return true;
         });
 
@@ -199,11 +203,32 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
             return true;
         });
 
-        final CheckBoxPreference batterySaver = findPref("batterySaver");
-        batterySaver.setTitle("Battery saver test");
-        batterySaver.setSummary("Lower battery use. Some weirdness may be possible but on my devices its working great. On idle, app drops off of Android battery chart as its < 0.1% use. YMMV for various reasons. NOTE: You *must* manually restart server again after toggling if its already running.");
+        final ListPreference batterySaver = findPref("battery_saver");
+        // val 0 HIGH is always on wake locks + wake lock setting enabled (high battery, smooth)
+        // val 1 LOW is wake locks run only during client connection (low battery, some of both)
+        // val 2 DEEP is wake locks disabled (lowest battery use, a bit choppy)
+        final String s = batterySaver.getValue();
+        if (Integer.parseInt(s) > 1) {
+            wakelockPref.setChecked(false);
+            wakelockPref.setEnabled(false);
+        } else {
+            wakelockPref.setEnabled(true);
+        }
+        batterySaver.setTitle("Battery saver");
+        final String bSumSelection = FsSettings.getBatterySaverChoice(null) + '\n';
+        final String bSum = bSumSelection + getString(R.string.battery_saver_desc);
+        batterySaver.setSummary(bSum);
         batterySaver.setOnPreferenceChangeListener((preference, newValue) -> {
-            sp.edit().putBoolean("BatterSaverTest", (boolean) newValue).apply();
+            if (Integer.parseInt((String) newValue) > 1) {
+                wakelockPref.setChecked(false);
+                wakelockPref.setEnabled(false);
+            } else {
+                wakelockPref.setEnabled(true);
+            }
+            final String bSumSelection2 = FsSettings.getBatterySaverChoice(
+                    (String) newValue) + '\n';
+            final String bSum2 = bSumSelection2 + getString(R.string.battery_saver_desc);
+            batterySaver.setSummary(bSum2);
             return true;
         });
 
@@ -243,6 +268,18 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
         Preference aboutPref = findPref("about");
         aboutPref.setOnPreferenceClickListener(preference -> {
             startActivity(new Intent(getActivity(), AboutActivity.class));
+            return true;
+        });
+
+        Preference logsPref = findPref("logs");
+        logsPref.setOnPreferenceClickListener(preference -> {
+            startActivity(new Intent(getActivity(), LogActivity.class));
+            return true;
+        });
+
+        Preference logCheckbox = findPref("enableLogging");
+        logCheckbox.setOnPreferenceChangeListener((preference, newValue) -> {
+            if (!(boolean) newValue) new Logging().clearLog();
             return true;
         });
 

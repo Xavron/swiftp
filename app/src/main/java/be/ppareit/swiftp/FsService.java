@@ -29,13 +29,13 @@ import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.SystemClock;
@@ -81,21 +81,19 @@ public class FsService extends Service implements Runnable {
 
     protected ServerSocket listenSocket;
 
-    // The server thread will check this often to look for incoming
-    // connections. We are forced to use non-blocking accept() and polling
-    // because we cannot wait forever in accept() if we want to be able
-    // to receive an exit signal and cleanly exit.
-    public static final int WAKE_INTERVAL_MS = 1000; // milliseconds
-    public static final int WAKE_INTERVAL_MS_SAVER = 60000;
-
-    private TcpListener wifiListener = null;
+    private TcpListener socketWatcher = null;
     private final List<SessionThread> sessionThreads = new ArrayList<>();
 
     private PowerManager.WakeLock wakeLock;
     private WifiLock wifiLock = null;
 
-    private static Handler handler = null;
+    private static Handler specialAutoOnHandler = null;
     private int delayCount = 0;
+
+    private static boolean connectionWakelockRunning = false;
+    static Handler connWakeLockHandler = null;
+    static Message connWakeLockMessage = null;
+    static boolean useConnWakeLocks = false;
 
     /**
      * Check to see if the FTP Server is up and running
@@ -196,6 +194,9 @@ public class FsService extends Service implements Runnable {
     public void onDestroy() {
         Log.i(TAG, "onDestroy() Stopping server");
         shouldExit = true;
+
+        endServer();
+
         if (serverThread == null) {
             Log.w(TAG, "Stopping with null serverThread");
             return;
@@ -222,18 +223,27 @@ public class FsService extends Service implements Runnable {
         } catch (IOException ignored) {
         }
 
-        if (wifiLock != null) {
-            Log.d(TAG, "onDestroy: Releasing wifi lock");
-            wifiLock.release();
-            wifiLock = null;
-        }
-        if (wakeLock != null) {
-            Log.d(TAG, "onDestroy: Releasing wake lock");
-            wakeLock.release();
-            wakeLock = null;
-        }
-        if (handler != null) handler = null;
+        releaseWakelocks();
+
+        if (specialAutoOnHandler != null) specialAutoOnHandler = null;
+        if (connWakeLockHandler != null) connWakeLockHandler.removeCallbacksAndMessages(null);
+        if (connWakeLockMessage != null) connWakeLockMessage = null;
+
         Log.d(TAG, "FTPServerService.onDestroy() finished");
+    }
+
+    private void endServer() {
+        terminateAllSessions();
+
+        if (socketWatcher != null) {
+            socketWatcher.quit();
+            socketWatcher = null;
+        }
+        shouldExit = false; // we handled the exit flag, so reset it to acknowledge
+        Log.d(TAG, "Exiting cleanly, returning from run()");
+
+        stopSelf();
+        sendBroadcast(new Intent(ACTION_STOPPED));
     }
 
     // This opens a listening socket on all interfaces.
@@ -249,7 +259,7 @@ public class FsService extends Service implements Runnable {
 
         if (!isConnectedToLocalNetwork()) {
             Log.w(TAG, "run: There is no local network, bailing out");
-            handler = new Handler(getMainLooper()) {
+            specialAutoOnHandler = new Handler(getMainLooper()) {
                 @Override
                 public void handleMessage(Message msg) {
                     super.handleMessage(msg);
@@ -261,20 +271,20 @@ public class FsService extends Service implements Runnable {
                     } else {
                         if (delayCount < 48) {
                             // Try hourly for 1 day. After that it will be manual start by user.
-                            handler.sendMessageDelayed(handler.obtainMessage(), 1800000);
+                            specialAutoOnHandler.sendMessageDelayed(specialAutoOnHandler.obtainMessage(), 1800000);
                             delayCount++;
                         }
                     }
                 }
             };
             serverThread = null;
-            handler.sendMessageDelayed(handler.obtainMessage(), 1800000);
+            specialAutoOnHandler.sendMessageDelayed(specialAutoOnHandler.obtainMessage(), 1800000);
             return;
         }
 
-        if (handler != null) handler = null;
+        if (specialAutoOnHandler != null) specialAutoOnHandler = null;
 
-        // Initialization of wifi, set up the socket
+        // Set up the socket
         try {
             setupListener();
         } catch (IOException e) {
@@ -285,58 +295,38 @@ public class FsService extends Service implements Runnable {
         }
 
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(App.getAppContext());
-        final boolean batterySaver = sp.getBoolean("batterySaver", false);
-        if (!batterySaver) {
+        final int batterySaver = Integer.parseInt(sp.getString("battery_saver", "1"));
+        if (batterySaver == 0) {
             // @TODO: when using ethernet, is it needed to take wifi lock?
             takeWifiLock();
             takeWakeLock();
+        } else if (batterySaver == 1) {
+            useConnWakeLocks = true;
+            initializeConnWakeLocks();
         }
 
         // A socket is open now, so the FTP server is started, notify rest of world
         Log.i(TAG, "Ftp Server up and running, broadcasting ACTION_STARTED");
         sendBroadcast(new Intent(ACTION_STARTED));
 
-        final int FINAL_INTERVAL;
-        if (batterySaver) FINAL_INTERVAL = WAKE_INTERVAL_MS_SAVER;
-        else FINAL_INTERVAL = WAKE_INTERVAL_MS;
+// So what does actually happen after this point here...
+//  1. new TcpListener() aka server + thread
+//  2. Gets puts back in here at registerSessionThread() into sessionThreads holder
+//  3. Because of Service sticking around in the bg, it is therefore kept around and not lost or GC'd
+//  4. Therefore socket, etc stays open due to Service, server on, etc.
+//  5. new TcpListener() is then removed each time registerSessionThread() is called in TcpListener
+//      which it removes but also adds so its always there and not lost. registerSessionThread() is
+//      mostly remove/cleanup so its a bit oddly named. Don't get thrown off looking at it.
+//  6. new TcpListener() sticks around (and also doesn't loop thousand times per sec) as
+//      listenSocket.accept() blocks until new connection is made. Has no timeout, etc. Thus,
+//      everything stays working, socket stays open, clients can connect, etc.
+//  7. The loop in TcpListener with the .accept() basically keeps everything going. Everything, pauses
+//      while its blocking. Once it receives the next connection is made, everything loops again. Repeat.
+//  8. Repeats until server is turned off (on/off toggle switch) and then onDestroy is called and
+//      cleans everything up. When server is toggled on again, we arrive back here.
 
-        while (!shouldExit) {
-            if (wifiListener != null) {
-                if (!wifiListener.isAlive()) {
-                    Log.d(TAG, "Joining crashed wifiListener thread");
-                    try {
-                        wifiListener.join();
-                    } catch (InterruptedException ignored) {
-                    }
-                    wifiListener = null;
-                }
-            }
-            if (wifiListener == null) {
-                // Either our wifi listener hasn't been created yet, or has crashed,
-                // so spawn it
-                wifiListener = new TcpListener(listenSocket, this);
-                wifiListener.start();
-            }
-            try {
-                // TODO: think about using ServerSocket, and just closing
-                // the main socket to send an exit signal
-                Thread.sleep(FINAL_INTERVAL);
-            } catch (InterruptedException e) {
-                Log.d(TAG, "Thread interrupted");
-            }
-        }
-
-        terminateAllSessions();
-
-        if (wifiListener != null) {
-            wifiListener.quit();
-            wifiListener = null;
-        }
-        shouldExit = false; // we handled the exit flag, so reset it to acknowledge
-        Log.d(TAG, "Exiting cleanly, returning from run()");
-
-        stopSelf();
-        sendBroadcast(new Intent(ACTION_STOPPED));
+        socketWatcher = new TcpListener(listenSocket, this);
+        socketWatcher.start();
     }
 
     private void terminateAllSessions() {
@@ -358,12 +348,13 @@ public class FsService extends Service implements Runnable {
      * CPU throttling. For these devices, we have a option to force the phone into a full
      * wake lock.
      */
-    private void takeWakeLock() {
+    public void takeWakeLock() {
         if (wakeLock == null) {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (FsSettings.shouldTakeFullWakeLock()) {
                 Log.d(TAG, "takeWakeLock: Taking full wake lock");
-                wakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, TAG);
+                // Note: FULL_WAKE_LOCK is deprecated, officially not recommended, and is actually worse.
+                wakeLock = pm.newWakeLock(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, TAG);
             } else {
                 Log.d(TAG, "maybeTakeWakeLock: Taking partial wake lock");
                 wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
@@ -373,14 +364,84 @@ public class FsService extends Service implements Runnable {
         wakeLock.acquire();
     }
 
-    private void takeWifiLock() {
+    public void takeWifiLock() {
         Log.d(TAG, "takeWifiLock: Taking wifi lock");
         if (wifiLock == null) {
             WifiManager manager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            wifiLock = manager.createWifiLock(TAG);
+            if (Build.VERSION.SDK_INT >= 29) {
+                // Low is forced starting in Android 14 and starts use at Android 10.
+                wifiLock = manager.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, TAG);
+            } else {
+                wifiLock = manager.createWifiLock(TAG);
+            }
             wifiLock.setReferenceCounted(false);
         }
         wifiLock.acquire();
+    }
+
+    public void releaseWakelocks() {
+        if (wifiLock != null) {
+            Log.d(TAG, "onDestroy: Releasing wifi lock");
+            wifiLock.release();
+            wifiLock = null;
+        }
+        if (wakeLock != null) {
+            Log.d(TAG, "onDestroy: Releasing wake lock");
+            wakeLock.release();
+            wakeLock = null;
+        }
+        setConnWakelockNotRunning();
+    }
+
+    public boolean isConnWakelockRunning() {
+        return connectionWakelockRunning;
+    }
+
+    public void setConnWakelockNotRunning() {
+        //logging.appendLog("connection wakelocks (off)...");
+        connectionWakelockRunning = false;
+    }
+
+    public void setConnWakelockRunning() {
+        //logging.appendLog("connection wakelocks (on)...");
+        connectionWakelockRunning = true;
+    }
+
+    public void initializeConnWakeLocks() {
+        if (connWakeLockHandler != null) return;
+        connWakeLockHandler = new Handler(Looper.getMainLooper()) {
+            @Override
+            public void handleMessage(@androidx.annotation.NonNull Message msg) {
+                super.handleMessage(msg);
+                if (isConnWakelockRunning()) releaseWakelocks();
+            }
+        };
+    }
+
+    public void createConnWakeLock() {
+        if (!useConnWakeLocks) return;
+        if (connWakeLockMessage != null) {
+            connWakeLockHandler.removeCallbacksAndMessages(null);
+            connWakeLockMessage = null;
+        }
+        if (!isConnWakelockRunning()) {
+            takeWakeLock();
+            takeWifiLock();
+            setConnWakelockRunning();
+        }
+    }
+
+    /* Handle a delayed reaction to ending connection wakelocks.
+     * As its not possible to know when it will end since ftp client can quit and connect right back
+     * again, need to create a delayed reaction. A handler with a delayed message works well.
+     * */
+    public static void connWakelockEndHandler() {
+        if (!useConnWakeLocks) return;
+        if (connWakeLockMessage == null) {
+            //new Logging().appendLog("connection wakelocks to off in 10 minutes...\n\n\n");
+            connWakeLockMessage = connWakeLockHandler.obtainMessage();
+            connWakeLockHandler.sendMessageDelayed(connWakeLockMessage, 600000);
+        }
     }
 
     /**

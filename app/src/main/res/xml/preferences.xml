@@ -38,11 +38,9 @@ along with SwiFTP.  If not, see <http://www.gnu.org/licenses/>.
             android:key="manage_users"
             android:title="@string/manage_users_label" />
 
-        <CheckBoxPreference
-            android:defaultValue="@string/allow_anonymous_default"
-            android:key="allow_anonymous"
-            android:summary="@string/anonymous_summary"
-            android:title="@string/allow_anonymous_label" />
+        <Preference
+            android:key="manage_anon"
+            android:title="@string/manage_anon_label" />
 
         <PreferenceScreen
             android:key="appearance_screen"
@@ -85,11 +83,22 @@ along with SwiFTP.  If not, see <http://www.gnu.org/licenses/>.
                 android:drawableStart="@drawable/ic_shared_dir"
                 android:title="@string/writeExternalStorage_label" />
 
+            <ListPreference
+                android:defaultValue="0"
+                android:entries="@array/pref_list_battery_saver_titles"
+                android:entryValues="@array/pref_list_battery_saver_values"
+                android:key="battery_saver"
+                android:dialogTitle="@string/battery_saver_setting_title"
+                android:title="@string/battery_saver_setting_title"
+                android:summary="@string/battery_saver_desc"/>
+
             <CheckBoxPreference
                 android:defaultValue="@string/writeNewExternalStorage_default"
-                android:key="batterySaver"
+                android:key="enableLogging"
                 android:drawableLeft="@drawable/ic_shared_dir"
-                android:drawableStart="@drawable/ic_shared_dir" />
+                android:drawableStart="@drawable/ic_shared_dir"
+                android:title="@string/enable_logging" />
+
         </PreferenceScreen>
 
     </PreferenceCategory>
@@ -103,6 +112,9 @@ along with SwiFTP.  If not, see <http://www.gnu.org/licenses/>.
         <Preference
             android:key="about"
             android:title="@string/about_label" />
+        <Preference
+            android:key="logs"
+            android:title="@string/manage_log_label" />
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -95,4 +95,13 @@ van de volgende versie staan op https://github.com/ppareit/swiftp/issues .\n\n
     <string name="mixed_theme">Gemengd thema</string>
     <string name="app_theme">Thema...</string>
 
+    <string name="battery_saver_setting_title">Batterij bespaarder</string>
+    <string name="battery_saver_desc">OPMERKING: U *moet* de server handmatig opnieuw opstarten na het wijzigen.</string>
+    <string name="enable_logging">Logboekregistratie inschakelen</string>
+    <string name="anon_max_conn">Maximaal gelijktijdige verbindingen</string>
+    <string name="bs_high">HOOG</string>
+    <string name="bs_low">LAAG</string>
+    <string name="bs_deep">DIEP</string>
+    <string name="manage_anon_label">Beheer anoniem…</string>
+    <string name="manage_log_label">Logboek…</string>
 </resources>

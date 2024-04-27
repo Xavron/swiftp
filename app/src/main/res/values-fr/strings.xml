@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
+<?xml version="1.0" encoding="utf-8"?><!--
 Copyright 2011-2013 Pieter Pareit
 Copyright 2009 David Revell
 
@@ -148,4 +147,13 @@ https://github.com/ppareit/swiftp/issues .\n\n
     <string name="mixed_theme">Thème mixte</string>
     <string name="app_theme">Thème...</string>
 
+    <string name="battery_saver_setting_title">Battery Saver</string>
+    <string name="battery_saver_desc">NOTE: You *must* manually restart server after changing.</string>
+    <string name="enable_logging">Enable logging</string>
+    <string name="anon_max_conn">Max simultaneous connections</string>
+    <string name="bs_high">HIGH</string>
+    <string name="bs_low">LOW</string>
+    <string name="bs_deep">DEEP</string>
+    <string name="manage_anon_label">Manage anonymous…</string>
+    <string name="manage_log_label">Log…</string>
 </resources>

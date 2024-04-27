@@ -192,4 +192,13 @@ na stronie https://github.com/ppareit/swiftp/issues .\n\n
     </string>
     <string name="write_external_storage_old_android_version_summary">Na tych urządzeniach cały sklep jest dostępny przy użyciu hierarchii plików.</string>
 
+    <string name="battery_saver_setting_title">Program oszczędzający baterię</string>
+    <string name="battery_saver_desc">UWAGA: *musisz* ręcznie zrestartować serwer po zmianie.</string>
+    <string name="enable_logging">Włącz logowanie</string>
+    <string name="anon_max_conn">Maksymalna liczba jednoczesnych połączeń</string>
+    <string name="bs_high">WYSOKI</string>
+    <string name="bs_low">NISKI</string>
+    <string name="bs_deep">GŁĘBOKO</string>
+    <string name="manage_anon_label">Zarządzaj anonimowo…</string>
+    <string name="manage_log_label">Dziennik…</string>
 </resources>
