@@ -149,11 +149,11 @@ https://github.com/ppareit/swiftp/issues .\n\n
 
     <string name="battery_saver_setting_title">Battery Saver</string>
     <string name="battery_saver_desc">NOTE: You *must* manually restart server after changing.</string>
-    <string name="enable_logging">Enable logging</string>
     <string name="anon_max_conn">Max simultaneous connections</string>
     <string name="bs_high">HIGH</string>
     <string name="bs_low">LOW</string>
     <string name="bs_deep">DEEP</string>
     <string name="manage_anon_label">Manage anonymous…</string>
-    <string name="manage_log_label">Log…</string>
+    <string name="enable_logging">Activer la journalisation</string>
+    <string name="manage_log_label">Enregistrer…</string>
 </resources>
