@@ -42,6 +42,7 @@ import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
@@ -60,9 +61,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import javax.net.ssl.SSLServerSocket;
+
 import be.ppareit.swiftp.gui.FsNotification;
+import be.ppareit.swiftp.gui.MainActivity;
 import be.ppareit.swiftp.server.SessionThread;
 import be.ppareit.swiftp.server.TcpListener;
+import be.ppareit.swiftp.utils.FTPSSockets;
 
 public class FsService extends Service implements Runnable {
     private static final String TAG = FsService.class.getSimpleName();
@@ -80,6 +85,7 @@ public class FsService extends Service implements Runnable {
     protected boolean shouldExit = false;
 
     protected ServerSocket listenSocket;
+    public static SSLServerSocket listenSocketSecure;
 
     private TcpListener socketWatcher = null;
     private final List<SessionThread> sessionThreads = new ArrayList<>();
@@ -132,6 +138,16 @@ public class FsService extends Service implements Runnable {
         Context context = App.getAppContext();
         Intent serverService = new Intent(context, FsService.class);
         context.stopService(serverService);
+    }
+
+    /*
+     * Restarts the FTP server for settings that affect the server.
+     * */
+    public static void restart() {
+        if (!isRunning()) return; // Works great for dealing with multi taps in the delay window.
+        stop();
+        // Needs a delay. 100ms appears to be working. Did not try anything less.
+        new Handler().postDelayed(FsService::start, 100);
     }
 
     /**
@@ -222,6 +238,13 @@ public class FsService extends Service implements Runnable {
             }
         } catch (IOException ignored) {
         }
+        try {
+            if (listenSocketSecure != null) {
+                Log.i(TAG, "Closing listenSocketSecure");
+                listenSocketSecure.close();
+            }
+        } catch (IOException ignored) {
+        }
 
         releaseWakelocks();
 
@@ -248,6 +271,15 @@ public class FsService extends Service implements Runnable {
 
     // This opens a listening socket on all interfaces.
     void setupListener() throws IOException {
+        initServerSocket();
+        try {
+            listenSocketSecure = new FTPSSockets().initServerSocket();
+        } catch (Exception e) {
+            Log.e(TAG, "Unable to open FTPS implicit port, bailing out: " + e.getLocalizedMessage());
+        }
+    }
+
+    private void initServerSocket() throws IOException {
         listenSocket = new ServerSocket();
         listenSocket.setReuseAddress(true);
         listenSocket.bind(new InetSocketAddress(FsSettings.getPortNumber()));
@@ -325,7 +357,7 @@ public class FsService extends Service implements Runnable {
 //  8. Repeats until server is turned off (on/off toggle switch) and then onDestroy is called and
 //      cleans everything up. When server is toggled on again, we arrive back here.
 
-        socketWatcher = new TcpListener(listenSocket, this);
+        socketWatcher = new TcpListener(listenSocket, this, listenSocketSecure);
         socketWatcher.start();
     }
 
