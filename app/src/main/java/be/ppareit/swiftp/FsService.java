@@ -42,7 +42,6 @@ import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.WindowManager;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
@@ -64,7 +63,6 @@ import java.util.List;
 import javax.net.ssl.SSLServerSocket;
 
 import be.ppareit.swiftp.gui.FsNotification;
-import be.ppareit.swiftp.gui.MainActivity;
 import be.ppareit.swiftp.server.SessionThread;
 import be.ppareit.swiftp.server.TcpListener;
 import be.ppareit.swiftp.utils.FTPSSockets;
@@ -332,9 +330,12 @@ public class FsService extends Service implements Runnable {
             // @TODO: when using ethernet, is it needed to take wifi lock?
             takeWifiLock();
             takeWakeLock();
+            useConnWakeLocks = false;
         } else if (batterySaver == 1) {
             useConnWakeLocks = true;
             initializeConnWakeLocks();
+        } else {
+            useConnWakeLocks = false;
         }
 
         // A socket is open now, so the FTP server is started, notify rest of world
