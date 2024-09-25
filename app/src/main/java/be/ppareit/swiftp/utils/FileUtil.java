@@ -344,6 +344,7 @@ public abstract class FileUtil {
             // Fix: The original code below in the next block is having some failures during Android
             // 13 tests. This works around that and has no more failures.
             // Fix: error on File use in logcat by moving above.
+            // Fix: FileZilla using 2 or more connections causing duplicates in rare situations.
             final String filename = file.getName();
             String parent = file.getPath();
             DocumentFile child = getDocumentFile(file.getPath());
@@ -351,7 +352,16 @@ public abstract class FileUtil {
             parent = parent.substring(0, parent.length() - filename.length());
             DocumentFile documentFile = getDocumentFile(parent);
             if (documentFile != null) {
+                // Get child using the duplicate name to eliminate false positives.
+                DocumentFile childDup = getDocumentFile(file.getPath() + " (1)");
+                final boolean duplicateNotExists = childDup != null && childDup.lastModified() <= 0;
                 if (documentFile.createDirectory(filename) != null) {
+                    // Get the child duplicate name again here, as when it happens, then its
+                    // lastModified will be > 0. The orig dir lastModified will still be 0 here.
+                    childDup = getDocumentFile(file.getPath() + " (1)");
+                    if (duplicateNotExists && childDup != null && childDup.lastModified() > 0) {
+                        childDup.delete(); // A duplicate was just created so delete it.
+                    }
                     return documentFile.exists();
                 }
             }
