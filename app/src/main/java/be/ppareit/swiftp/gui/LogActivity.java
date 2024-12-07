@@ -84,13 +84,6 @@ public class LogActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.logs_menu, menu);
-
-        MenuItem displayLogcatItem = menu.findItem(R.id.action_display_logcat);
-        MenuItem clearItem = menu.findItem(R.id.action_clear);
-
-        displayLogcatItem.setChecked(isDisplayingLogcat);
-        clearItem.setVisible(!isDisplayingLogcat);
 
         return true;
     }
@@ -147,17 +140,6 @@ public class LogActivity extends AppCompatActivity {
 
         if (id == android.R.id.home) {
             NavUtils.navigateUpFromSameTask(this);
-            return true;
-        } else if (id == R.id.action_clear) {
-            if (tv.getText().toString().isEmpty())
-                return true;
-            logging.clearLog();
-            return true;
-        } else if (id == R.id.action_display_logcat) {
-            item.setChecked(!item.isChecked());
-            isDisplayingLogcat = item.isChecked();
-            updateView(tv);
-            invalidateOptionsMenu();
             return true;
         }
 
