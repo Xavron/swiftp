@@ -25,7 +25,6 @@ import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
 import android.app.AlertDialog;
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Build.VERSION;
@@ -35,6 +34,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.pm.ShortcutInfoCompat;
@@ -46,7 +46,6 @@ import net.vrallev.android.cat.Cat;
 import java.util.Arrays;
 
 import be.ppareit.swiftp.App;
-import be.ppareit.swiftp.BuildConfig;
 import be.ppareit.swiftp.FsService;
 import be.ppareit.swiftp.FsSettings;
 import be.ppareit.swiftp.R;
@@ -64,6 +63,10 @@ public class MainActivity extends AppCompatActivity {
         Cat.d("created");
         setTheme(FsSettings.getTheme());
         super.onCreate(savedInstanceState);
+
+        setContentView(R.layout.main_layout);
+        setSupportActionBar(findViewById(R.id.my_toolbar));
+        onBackPressedListener();
 
         if (VERSION.SDK_INT < 33 /*denied on Android 13*/ && !haveReadWritePermissions()) {
             requestReadWritePermissions();
@@ -84,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         getSupportFragmentManager().beginTransaction()
-                .replace(android.R.id.content, new PreferenceFragment(), null)
+                .replace(R.id.main_activity_fragment, new PreferenceFragment(), null)
                 .commit();
 
         if (VERSION.SDK_INT >= 25) {
@@ -165,33 +168,25 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-
-        if (item.getItemId() == R.id.action_feedback) {
-            String to = "pieter.pareit@gmail.com";
-            String subject = "FTP Server feedback";
-            String message = "Device: " + Build.MODEL + "\n" +
-                    "Android version: " + VERSION.RELEASE + "-" + VERSION.SDK_INT + "\n" +
-                    "Application: " + BuildConfig.APPLICATION_ID + " (" + BuildConfig.FLAVOR + ")\n" +
-                    "Application version: " + BuildConfig.VERSION_NAME + " - " + BuildConfig.VERSION_CODE + "\n" +
-                    "Feedback: \n_";
-
-            Intent emailIntent = new Intent(Intent.ACTION_SEND);
-            emailIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
-            emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
-            emailIntent.putExtra(Intent.EXTRA_TEXT, message);
-            emailIntent.setType("message/rfc822");
-
-            try {
-                startActivity(emailIntent);
-                Toast.makeText(this, R.string.use_english, Toast.LENGTH_LONG).show();
-            } catch (ActivityNotFoundException exception) {
-                Toast.makeText(this, R.string.unable_to_start_mail_client, Toast.LENGTH_LONG).show();
-            }
-
-        } else if (item.getItemId() == R.id.action_about) {
-            startActivity(new Intent(this, AboutActivity.class));
+        if (item.getItemId() == android.R.id.home) {
+            getSupportFragmentManager().popBackStack();
+            return true;
         }
-
+        new be.ppareit.swiftp.gui.Menu().init(item, this);
         return true;
+    }
+
+    private void onBackPressedListener() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (getSupportFragmentManager().getBackStackEntryCount() == 0) {
+                    MainActivity.this.finish();
+                } else {
+                    getSupportFragmentManager().popBackStack();
+                    if (getSupportActionBar() != null) getSupportActionBar().setDisplayHomeAsUpEnabled(false);
+                }
+            }
+        });
     }
 }

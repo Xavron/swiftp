@@ -36,6 +36,7 @@ import android.os.Bundle;
 import android.os.Handler;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.viewmodel.CreationExtras;
 import androidx.preference.EditTextPreference;
 import androidx.preference.MultiSelectListPreference;
@@ -127,9 +128,10 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
                 updateIPListWithChangesFromOtherSettings();
                 showScreen = SHOW_ADVANCED_SCREEN;
                 getActivity().getSupportFragmentManager().beginTransaction()
-                        .replace(android.R.id.content, new PreferenceFragment(), "preference_screen_advanced")
+                        .replace(R.id.main_activity_fragment, new PreferenceFragment(), "preference_screen_advanced")
                         .addToBackStack("default")
                         .commit();
+                ((AppCompatActivity)getActivity()).getSupportActionBar().setDisplayHomeAsUpEnabled(true);
                 return true;
             });
         }
@@ -140,9 +142,10 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
             prefScreenAppearance.setOnPreferenceClickListener(preference -> {
                 showScreen = SHOW_APPEARANCE_SCREEN;
                 getActivity().getSupportFragmentManager().beginTransaction()
-                        .replace(android.R.id.content, new PreferenceFragment(), "appearance_screen")
+                        .replace(R.id.main_activity_fragment, new PreferenceFragment(), "appearance_screen")
                         .addToBackStack("default")
                         .commit();
+                ((AppCompatActivity)getActivity()).getSupportActionBar().setDisplayHomeAsUpEnabled(true);
                 return true;
             });
         }
