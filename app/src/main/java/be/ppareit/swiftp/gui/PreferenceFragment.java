@@ -34,14 +34,20 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.preference.CheckBoxPreference;
-import android.preference.EditTextPreference;
-import android.preference.ListPreference;
-import android.preference.MultiSelectListPreference;
-import android.preference.Preference;
-import android.preference.PreferenceManager;
-import android.preference.PreferenceScreen;
-import android.preference.TwoStatePreference;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.viewmodel.CreationExtras;
+import androidx.preference.EditTextPreference;
+import androidx.preference.MultiSelectListPreference;
+import androidx.preference.Preference;
+import androidx.preference.CheckBoxPreference;
+import androidx.preference.ListPreference;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceManager;
+import androidx.preference.PreferenceScreen;
+import androidx.preference.TwoStatePreference;
+
 import android.text.InputType;
 import android.text.util.Linkify;
 import android.util.ArraySet;
@@ -80,7 +86,7 @@ import be.ppareit.swiftp.utils.Logging;
  * This is the main activity for swiftp, it enables the user to start the server service
  * and allows the users to change the settings.
  */
-public class PreferenceFragment extends android.preference.PreferenceFragment {
+public class PreferenceFragment extends PreferenceFragmentCompat {
 
     private static final int ACCESS_COARSE_LOCATION_REQUEST_CODE = 14;
     private static final int ACTION_OPEN_DOCUMENT_TREE = 42;
@@ -92,310 +98,408 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
     private DynamicMultiSelectListPreference mAutoconnectListPref;
     private Handler mHandler = new Handler();
 
+    private static int showScreen = 0;
+    private static final int SHOW_ADVANCED_SCREEN = 1;
+    private static final int SHOW_APPEARANCE_SCREEN = 2;
+
+    @Override
+    public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
+        switch (showScreen) {
+            case SHOW_ADVANCED_SCREEN -> setPreferencesFromResource(R.xml.preferences, "preference_screen_advanced");
+            case SHOW_APPEARANCE_SCREEN -> setPreferencesFromResource(R.xml.preferences, "appearance_screen");
+            default -> setPreferencesFromResource(R.xml.preferences, rootKey);
+        }
+        showScreen = 0;
+    }
+
+    @NonNull
+    @Override
+    public CreationExtras getDefaultViewModelCreationExtras() {
+        return super.getDefaultViewModelCreationExtras();
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        addPreferencesFromResource(R.xml.preferences);
+
+        // Helps the list to get updated without recreating the UI.
+        PreferenceScreen prefScreenAdvanced = findPref("preference_screen_advanced");
+        if (prefScreenAdvanced != null) {
+            prefScreenAdvanced.setOnPreferenceClickListener(preference -> {
+                updateIPListWithChangesFromOtherSettings();
+                showScreen = SHOW_ADVANCED_SCREEN;
+                getActivity().getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.main_activity_fragment, new PreferenceFragment(), "preference_screen_advanced")
+                        .addToBackStack("default")
+                        .commit();
+                ((AppCompatActivity)getActivity()).getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+                return true;
+            });
+        }
+
+        // Helps the list to get updated without recreating the UI.
+        PreferenceScreen prefScreenAppearance = findPref("appearance_screen");
+        if (prefScreenAppearance != null) {
+            prefScreenAppearance.setOnPreferenceClickListener(preference -> {
+                showScreen = SHOW_APPEARANCE_SCREEN;
+                getActivity().getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.main_activity_fragment, new PreferenceFragment(), "appearance_screen")
+                        .addToBackStack("default")
+                        .commit();
+                ((AppCompatActivity)getActivity()).getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+                return true;
+            });
+        }
 
         TwoStatePreference runningPref = findPref("running_switch");
-        updateRunningState();
-        runningPref.setOnPreferenceChangeListener((preference, newValue) -> {
-            if ((Boolean) newValue) {
-                FsService.start();
-            } else {
-                FsService.stop();
-            }
-            return true;
-        });
+        if (runningPref != null) {
+            updateRunningState();
+            runningPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                if ((Boolean) newValue) {
+                    FsService.start();
+                } else {
+                    FsService.stop();
+                }
+                return true;
+            });
+        }
 
         PreferenceScreen prefScreen = findPref("preference_screen");
         Preference marketVersionPref = findPref("market_version");
-        if (!App.isFreeVersion()) {
-            prefScreen.removePreference(marketVersionPref);
+        if (prefScreen != null) {
+            if (!App.isFreeVersion()) {
+                prefScreen.removePreference(marketVersionPref);
+            }
+            if (!(App.isPackageInstalled("com.android.vending") ||
+                    App.isPackageInstalled("com.google.market"))) {
+                prefScreen.removePreference(marketVersionPref);
+            }
         }
-        if (!(App.isPackageInstalled("com.android.vending") ||
-                App.isPackageInstalled("com.google.market"))) {
-            prefScreen.removePreference(marketVersionPref);
+        if (marketVersionPref != null) {
+            marketVersionPref.setOnPreferenceClickListener(preference -> {
+                // start the market at our application
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.setData(Uri.parse("market://details?id=be.ppareit.swiftp"));
+                startActivity(intent);
+                return false;
+            });
         }
-        marketVersionPref.setOnPreferenceClickListener(preference -> {
-            // start the market at our application
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            intent.setData(Uri.parse("market://details?id=be.ppareit.swiftp"));
-            startActivity(intent);
-            return false;
-        });
 
         Preference manageUsersPref = findPref("manage_users");
-        updateUsersPref();
-        manageUsersPref.setOnPreferenceClickListener((preference) -> {
-            startActivity(new Intent(getActivity(), ManageUsersActivity.class));
-            return true;
-        });
+        if (manageUsersPref != null) {
+            updateUsersPref();
+            manageUsersPref.setOnPreferenceClickListener((preference) -> {
+                startActivity(new Intent(getActivity(), ManageUsersActivity.class));
+                return true;
+            });
+        }
 
         Preference manageAnonPref = findPref("manage_anon");
-        manageAnonPref.setOnPreferenceClickListener((preference) -> {
-            startActivity(new Intent(getActivity(), ManageAnonActivity.class));
-            return true;
-        });
+        if (manageAnonPref != null) {
+            manageAnonPref.setOnPreferenceClickListener((preference) -> {
+                startActivity(new Intent(getActivity(), ManageAnonActivity.class));
+                return true;
+            });
+        }
 
         EditTextPreference portNumberPref = findPref("portNum");
-        portNumberPref.setSummary(String.valueOf(FsSettings.getPortNumber()));
-        portNumberPref.setOnPreferenceChangeListener((preference, newValue) -> {
-            String newPortNumberString = (String) newValue;
-            if (preference.getSummary().equals(newPortNumberString))
-                return false;
-            int portNumber = 0;
-            try {
-                portNumber = Integer.parseInt(newPortNumberString);
-            } catch (Exception e) {
-                Cat.d("Error parsing port number! Moving on...");
-            }
-            if (portNumber <= 0 || 65535 < portNumber) {
-                Toast.makeText(getActivity(),
-                        R.string.port_validation_error,
-                        Toast.LENGTH_LONG).show();
-                return false;
-            }
-            preference.setSummary(newPortNumberString);
-            FsService.restart();
-            return true;
-        });
+        if (portNumberPref != null) {
+            portNumberPref.setSummary(String.valueOf(FsSettings.getPortNumber()));
+            portNumberPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                String newPortNumberString = (String) newValue;
+                if (preference.getSummary().equals(newPortNumberString))
+                    return false;
+                int portNumber = 0;
+                try {
+                    portNumber = Integer.parseInt(newPortNumberString);
+                } catch (Exception e) {
+                    Cat.d("Error parsing port number! Moving on...");
+                }
+                if (portNumber <= 0 || 65535 < portNumber) {
+                    Toast.makeText(getActivity(),
+                            R.string.port_validation_error,
+                            Toast.LENGTH_LONG).show();
+                    return false;
+                }
+                preference.setSummary(newPortNumberString);
+                FsService.restart();
+                return true;
+            });
+        }
 
         final CheckBoxPreference wakelockPref = findPref("stayAwake");
-        wakelockPref.setOnPreferenceChangeListener((preference, newValue) -> {
-            FsService.restart();
-            return true;
-        });
+        if (wakelockPref != null) {
+            wakelockPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                FsService.restart();
+                return true;
+            });
+        }
 
         final CheckBoxPreference writeExternalStoragePref = findPref("writeExternalStorage");
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-            String externalStorageUri = FsSettings.getExternalStorageUri();
-            if (externalStorageUri == null) {
-                writeExternalStoragePref.setChecked(false);
-            }
-            writeExternalStoragePref.setOnPreferenceChangeListener((preference, newValue) -> {
-                if ((boolean) newValue) {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-                    startActivityForResult(intent, ACTION_OPEN_DOCUMENT_TREE);
-                    return false;
-                } else {
-                    FsSettings.setExternalStorageUri(null);
-                    return true;
+        if (writeExternalStoragePref != null) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                String externalStorageUri = FsSettings.getExternalStorageUri();
+                if (externalStorageUri == null) {
+                    writeExternalStoragePref.setChecked(false);
                 }
+                writeExternalStoragePref.setOnPreferenceChangeListener((preference, newValue) -> {
+                    if ((boolean) newValue) {
+                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+                        startActivityForResult(intent, ACTION_OPEN_DOCUMENT_TREE);
+                        return false;
+                    } else {
+                        FsSettings.setExternalStorageUri(null);
+                        return true;
+                    }
+                });
+            } else {
+                writeExternalStoragePref.setEnabled(false);
+                writeExternalStoragePref.setChecked(true);
+                writeExternalStoragePref.setSummary(getString(R.string.write_external_storage_old_android_version_summary));
+            }
+        }
+
+        final CheckBoxPreference newScoped = findPref("newScopedStorage");
+        if (newScoped != null && writeExternalStoragePref != null) {
+            if (sp.getBoolean("NewScopedStorageUpgradeCheck", true)) {
+                // Don't break use if "write external storage" was used before the app update as the original
+                // code it now fully uses isn't compat with the newer one and would see major issues.
+                // Runs one time only on update as pref won't be checked after clean install / wipe.
+                // Code is executed on app start which happens automatically after app update.
+                if (writeExternalStoragePref.isChecked()) { // needs to be true to not break use
+                    sp.edit().putBoolean("AllowNewScopedStorage", true).apply();
+                    sp.edit().putBoolean("NewScopedStorageUpgradeCheck", false).apply();
+                    writeExtMultiUserUpgradePath();
+                }
+            }
+
+            if (Util.useScopedStorage()) {
+                // Do not allow mixing of old setting with the new one!
+                newScoped.setChecked(true);
+                writeExternalStoragePref.setChecked(false);
+                writeExternalStoragePref.setEnabled(false);
+            } else {
+                newScoped.setChecked(false);
+            }
+            newScoped.setTitle(newScoped.getTitle() + " -> " + getString(R.string.manage_users_label));
+            newScoped.setOnPreferenceChangeListener((preference, newValue) -> {
+                writeExternalStoragePref.setChecked(false);
+                writeExternalStoragePref.setEnabled(!((boolean) newValue));
+                sp.edit().putBoolean("AllowNewScopedStorage", (boolean) newValue).apply();
+                Util.resetScoped();
+                return true;
             });
-        } else {
-            writeExternalStoragePref.setEnabled(false);
-            writeExternalStoragePref.setChecked(true);
-            writeExternalStoragePref.setSummary(getString(R.string.write_external_storage_old_android_version_summary));
         }
 
         final ListPreference batterySaver = findPref("battery_saver");
-        // val 0 HIGH is always on wake locks + wake lock setting enabled (high battery, smooth)
-        // val 1 LOW is wake locks run only during client connection (low battery, some of both)
-        // val 2 DEEP is wake locks disabled (lowest battery use, a bit choppy)
-        final String s = batterySaver.getValue();
-        if (Integer.parseInt(s) > 1) {
-            wakelockPref.setChecked(false);
-            wakelockPref.setEnabled(false);
-        } else {
-            wakelockPref.setEnabled(true);
-        }
-        batterySaver.setTitle("Battery saver");
-        final String bSumSelection = FsSettings.getBatterySaverChoice(null) + '\n';
-        final String bSum = bSumSelection;
-        batterySaver.setSummary(bSum);
-        batterySaver.setOnPreferenceChangeListener((preference, newValue) -> {
-            if (Integer.parseInt((String) newValue) > 1) {
+        if (batterySaver != null && wakelockPref != null) {
+            // val 0 HIGH is always on wake locks + wake lock setting enabled (high battery, smooth)
+            // val 1 LOW is wake locks run only during client connection (low battery, some of both)
+            // val 2 DEEP is wake locks disabled (lowest battery use, a bit choppy)
+            final String s = batterySaver.getValue();
+            if (Integer.parseInt(s) > 1) {
                 wakelockPref.setChecked(false);
                 wakelockPref.setEnabled(false);
             } else {
                 wakelockPref.setEnabled(true);
             }
-            final String bSumSelection2 = FsSettings.getBatterySaverChoice(
-                    (String) newValue) + '\n';
-            final String bSum2 = bSumSelection2;
-            batterySaver.setSummary(bSum2);
-            FsService.restart();
-            return true;
-        });
-
-        final CheckBoxPreference useScopedStorage = findPref("useScopedStorage");
-        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(App.getAppContext());
-        if (sp.getBoolean("NewScopedStorageUpgradeCheck", true)) {
-            // Don't break use if "write external storage" was used before the app update as the original
-            // code it now fully uses isn't compat with the newer one and would see major issues.
-            // Runs one time only on update as pref won't be checked after clean install / wipe.
-            // Code is executed on app start which happens automatically after app update.
-            if (writeExternalStoragePref.isChecked()) { // needs to be true to not break use
-                sp.edit().putBoolean("UseScopedStorage", true).apply();
-                sp.edit().putBoolean("NewScopedStorageUpgradeCheck", false).apply();
-                writeExtMultiUserUpgradePath();
-            }
+            batterySaver.setTitle("Battery saver");
+            final String bSumSelection = FsSettings.getBatterySaverChoice(null) + '\n';
+            final String bSum = bSumSelection;
+            batterySaver.setSummary(bSum);
+            batterySaver.setOnPreferenceChangeListener((preference, newValue) -> {
+                if (Integer.parseInt((String) newValue) > 1) {
+                    wakelockPref.setChecked(false);
+                    wakelockPref.setEnabled(false);
+                } else {
+                    wakelockPref.setEnabled(true);
+                }
+                final String bSumSelection2 = FsSettings.getBatterySaverChoice(
+                        (String) newValue) + '\n';
+                final String bSum2 = bSumSelection2;
+                batterySaver.setSummary(bSum2);
+                FsService.restart();
+                return true;
+            });
         }
-
-        if (Util.useScopedStorage()) {
-            // Do not allow mixing of old setting with the new one!
-            useScopedStorage.setChecked(true);
-            writeExternalStoragePref.setChecked(false);
-            writeExternalStoragePref.setEnabled(false);
-        } else {
-            useScopedStorage.setChecked(false);
-        }
-        useScopedStorage.setOnPreferenceChangeListener((preference, newValue) -> {
-            writeExternalStoragePref.setChecked(false);
-            writeExternalStoragePref.setEnabled(!((boolean) newValue));
-            sp.edit().putBoolean("UseScopedStorage", (boolean) newValue).apply();
-            Util.resetScoped();
-
-            return true;
-        });
 
         ListPreference themePref = findPref("theme");
-        themePref.setSummary(themePref.getEntry());
-        themePref.setOnPreferenceChangeListener((preference, newValue) -> {
+        if (themePref != null) {
             themePref.setSummary(themePref.getEntry());
-            getActivity().recreate();
-            return true;
-        });
+            themePref.setOnPreferenceChangeListener((preference, newValue) -> {
+                themePref.setSummary(themePref.getEntry());
+                getActivity().getSupportFragmentManager().popBackStack();
+                getActivity().recreate();
+                return true;
+            });
+        }
 
         Preference showNotificationIconPref = findPref("show_notification_icon_preference");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            PreferenceScreen appearanceScreen = (PreferenceScreen) findPreference("appearance_screen");
-            appearanceScreen.removePreference(showNotificationIconPref);
+        if (showNotificationIconPref != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PreferenceScreen appearanceScreen = (PreferenceScreen) findPreference("appearance_screen");
+                if (appearanceScreen != null) {
+                    appearanceScreen.removePreference(showNotificationIconPref);
+                }
+            }
+            showNotificationIconPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                FsService.stop();
+                return true;
+            });
         }
-        showNotificationIconPref.setOnPreferenceChangeListener((preference, newValue) -> {
-            FsService.stop();
-            return true;
-        });
 
         Preference helpPref = findPref("help");
-        helpPref.setOnPreferenceClickListener(preference -> {
-            Cat.v("On preference help clicked");
-            Context context = getActivity();
-            AlertDialog ad = new AlertDialog.Builder(context)
-                    .setTitle(R.string.help_dlg_title)
-                    .setMessage(R.string.help_dlg_message)
-                    .setPositiveButton(android.R.string.ok, null)
-                    .create();
-            ad.show();
-            Linkify.addLinks((TextView) ad.findViewById(android.R.id.message),
-                    Linkify.ALL);
-            return true;
-        });
+        if (helpPref != null) {
+            helpPref.setOnPreferenceClickListener(preference -> {
+                Cat.v("On preference help clicked");
+                Context context = getActivity();
+                AlertDialog ad = new AlertDialog.Builder(context)
+                        .setTitle(R.string.help_dlg_title)
+                        .setMessage(R.string.help_dlg_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .create();
+                ad.show();
+                Linkify.addLinks((TextView) ad.findViewById(android.R.id.message),
+                        Linkify.ALL);
+                return true;
+            });
+        }
 
         Preference aboutPref = findPref("about");
-        aboutPref.setOnPreferenceClickListener(preference -> {
-            startActivity(new Intent(getActivity(), AboutActivity.class));
-            return true;
-        });
+        if (aboutPref != null) {
+            aboutPref.setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(getActivity(), AboutActivity.class));
+                return true;
+            });
+        }
 
         Preference logsPref = findPref("logs");
-        logsPref.setOnPreferenceClickListener(preference -> {
-            startActivity(new Intent(getActivity(), LogActivity.class));
-            return true;
-        });
+        if (logsPref != null) {
+            logsPref.setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(getActivity(), LogActivity.class));
+                return true;
+            });
+        }
 
-        Preference logCheckbox = findPref("enable_logging");
-        logCheckbox.setOnPreferenceChangeListener((preference, newValue) -> {
-            if (!(boolean) newValue) new Logging().clearLog();
-            return true;
-        });
+        Preference logCheckbox = findPref("enableLogging");
+        if (logCheckbox != null) {
+            logCheckbox.setOnPreferenceChangeListener((preference, newValue) -> {
+                if (!(boolean) newValue) new Logging().clearLog();
+                return true;
+            });
+        }
 
         // Used to set the low side of the port range for data connections.
         // Set both low and high to empty or 0 to use random.
         EditTextPreference pasvRangeLow = findPref("portRangePasvLow");
-        pasvRangeLow.setOnPreferenceChangeListener((preference, newValue) -> {
-            String lowDefault = getContext().getString(R.string.portnumber_default_pasv_low);
-            preference.setSummary(checkNewPortValue((String) newValue, lowDefault));
-            return true;
-        });
-        pasvRangeLow.setSummary(FsSettings.getPortRangeLowString());
+        if (pasvRangeLow != null) {
+            pasvRangeLow.setOnPreferenceChangeListener((preference, newValue) -> {
+                String lowDefault = getContext().getString(R.string.portnumber_default_pasv_low);
+                preference.setSummary(checkNewPortValue((String) newValue, lowDefault));
+                return true;
+            });
+            pasvRangeLow.setSummary(FsSettings.getPortRangeLowString());
+        }
 
         // Used to set the high side of the port range for data connections.
         // Set both low and high to empty or 0 to use random.
         EditTextPreference pasvRangeHigh = findPref("portRangePasvHigh");
-        pasvRangeHigh.setOnPreferenceChangeListener((preference, newValue) -> {
-            String highDefault = getContext().getString(R.string.portnumber_default_pasv_high);
-            preference.setSummary(checkNewPortValue((String) newValue, highDefault));
-            return true;
-        });
-        pasvRangeHigh.setSummary(FsSettings.getPortRangeHighString());
+        if (pasvRangeHigh != null) {
+            pasvRangeHigh.setOnPreferenceChangeListener((preference, newValue) -> {
+                String highDefault = getContext().getString(R.string.portnumber_default_pasv_high);
+                preference.setSummary(checkNewPortValue((String) newValue, highDefault));
+                return true;
+            });
+            pasvRangeHigh.setSummary(FsSettings.getPortRangeHighString());
+        }
 
         // Allows user to choos the TLS implicit port
         EditTextPreference impicitPort = findPref("portNumImplicit");
-        String implicitPortDefault = getContext().getString(R.string.portnumber_default_implicit);
-        impicitPort.setOnPreferenceChangeListener((preference, newValue) -> {
-            String iport = (String) newValue;
-            if (iport.isEmpty()) iport = implicitPortDefault;
-            preference.setSummary(iport);
-            CheckBoxPreference enableImplicit = findPref("enableImplicitPort");
-            if (enableImplicit.isChecked()) enableImplicit.setSummary((String) newValue);
-            FsService.restart();
-            return true;
-        });
-        impicitPort.setSummary(FsSettings.getImplicitPortString());
+        if (impicitPort != null) {
+            String implicitPortDefault = getContext().getString(R.string.portnumber_default_implicit);
+            impicitPort.setOnPreferenceChangeListener((preference, newValue) -> {
+                String iport = (String) newValue;
+                if (iport.isEmpty()) iport = implicitPortDefault;
+                preference.setSummary(iport);
+                CheckBoxPreference enableImplicit = findPref("enableImplicitPort");
+                if (enableImplicit != null && enableImplicit.isChecked()) {
+                    enableImplicit.setSummary((String) newValue);
+                }
+                FsService.restart();
+                return true;
+            });
+            impicitPort.setSummary(FsSettings.getImplicitPortString());
+        }
 
         // Enables use of the TLS implicit port so that users can keep this port disabled if not using it.
         CheckBoxPreference enableImplicit = findPref("enableImplicitPort");
-        enableImplicit.setOnPreferenceChangeListener((preference, newValue) -> {
-            if ((boolean) newValue) {
-                String pni = FsSettings.getImplicitPortString();
-                preference.setSummary(pni);
-            } else {
-                preference.setSummary("Use explicit");
-            }
-            FsService.restart();
-            return true;
-        });
-        String enableImplicitSum = FsSettings.getImplicitPortString();
-        if (enableImplicitSum.isEmpty()) enableImplicitSum = "Use explicit";
-        else enableImplicit.setSummary(enableImplicitSum);
-        enableImplicit.setSummary(enableImplicitSum);
+        if (enableImplicit != null) {
+            enableImplicit.setOnPreferenceChangeListener((preference, newValue) -> {
+                if ((boolean) newValue) {
+                    String pni = FsSettings.getImplicitPortString();
+                    preference.setSummary(pni);
+                } else {
+                    preference.setSummary("Use explicit");
+                }
+                FsService.restart();
+                return true;
+            });
+            String enableImplicitSum = FsSettings.getImplicitPortString();
+            if (enableImplicitSum.isEmpty()) enableImplicitSum = "Use explicit";
+            else enableImplicit.setSummary(enableImplicitSum);
+            enableImplicit.setSummary(enableImplicitSum);
+        }
 
         // Allows the user to import the keystore certificate
         CheckBoxPreference certKeystore = findPref("certKeyStore");
-        certKeystore.setOnPreferenceChangeListener((preference, newValue) -> {
-            if ((boolean) newValue) {
-                startIntentForCertificateFile(PICK_CERT_FILE_JKS);
-            } else {
-                FTPSSockets.deleteKeyStore();
-                certKeystore.setSummary(getString(R.string.found_x));
-                EditTextPreference certPass = findPref("certPassword");
-                String passSum = certPass.getSummary().toString();
-                if (passSum.contains(getString(R.string.found_check_green))) {
-                    passSum = passSum.replace(getString(R.string.found_check_green),
-                            getString(R.string.found_check));
+        if (certKeystore != null) {
+            certKeystore.setOnPreferenceChangeListener((preference, newValue) -> {
+                if ((boolean) newValue) {
+                    startIntentForCertificateFile(PICK_CERT_FILE_JKS);
+                } else {
+                    FTPSSockets.deleteKeyStore();
+                    certKeystore.setSummary(getString(R.string.found_x));
+                    EditTextPreference certPass = findPref("certPassword");
+                    if (certPass != null) {
+                        String passSum = certPass.getSummary().toString();
+                        if (passSum.contains(getString(R.string.found_check_green))) {
+                            passSum = passSum.replace(getString(R.string.found_check_green),
+                                    getString(R.string.found_check));
+                        }
+                        certPass.setSummary(passSum);
+                    }
+                    FsService.restart();
                 }
-                certPass.setSummary(passSum);
-                FsService.restart();
+                return true;
+            });
+            if (isCertFileFound("storej.jks")) {
+                certKeystore.setSummary(getString(R.string.found_check));
+            } else {
+                certKeystore.setChecked(false);
+                certKeystore.setSummary(getString(R.string.found_x));
             }
-            return true;
-        });
-        if (isCertFileFound("storej.jks")) {
-            certKeystore.setSummary(getString(R.string.found_check));
-        } else {
-            certKeystore.setChecked(false);
-            certKeystore.setSummary(getString(R.string.found_x));
         }
 
         // Allows the user to import the trust store certificate
         CheckBoxPreference certTrustStore = findPref("certTrustStore");
-        certTrustStore.setOnPreferenceChangeListener((preference, newValue) -> {
-            if ((boolean) newValue) {
-                startIntentForCertificateFile(PICK_CERT_FILE_BKS);
+        if (certTrustStore != null) {
+            certTrustStore.setOnPreferenceChangeListener((preference, newValue) -> {
+                if ((boolean) newValue) {
+                    startIntentForCertificateFile(PICK_CERT_FILE_BKS);
+                } else {
+                    FTPSSockets.deleteTrustStore();
+                    certTrustStore.setSummary(getString(R.string.found_x));
+                    FsService.restart();
+                }
+                return true;
+            });
+            if (isCertFileFound("storeb.bks")) {
+                certTrustStore.setSummary(getString(R.string.found_check));
             } else {
-                FTPSSockets.deleteTrustStore();
+                certTrustStore.setChecked(false);
                 certTrustStore.setSummary(getString(R.string.found_x));
-                FsService.restart();
             }
-            return true;
-        });
-        if (isCertFileFound("storeb.bks")) {
-            certTrustStore.setSummary(getString(R.string.found_check));
-        } else {
-            certTrustStore.setChecked(false);
-            certTrustStore.setSummary(getString(R.string.found_x));
         }
 
         // Allows user to input the certificate password
@@ -403,236 +507,264 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
         boolean trustCertGood = FTPSSockets.checkTrustStore();
         String certCheckS = getString(R.string.found_check_green);
         EditTextPreference certPass = findPref("certPassword");
-        certPass.setSummary(sp.getString("certPassStar", ""));
-        certPass.setOnPreferenceChangeListener((preference, newValue) -> {
-            String pass = (String) newValue;
-            FTPSSockets.putCertPass(pass);
+        if (certPass != null && certKeystore != null && certTrustStore != null) {
+            certPass.setSummary(sp.getString("certPassStar", ""));
+            certPass.setOnPreferenceChangeListener((preference, newValue) -> {
+                String pass = (String) newValue;
+                FTPSSockets.putCertPass(pass);
 
-            boolean keyCertGood2 = FTPSSockets.checkKeyStore();
-            boolean trustCertGood2 = FTPSSockets.checkTrustStore();
-            if (keyCertGood2) certKeystore.setSummary(certCheckS);
-            if (trustCertGood2) certTrustStore.setSummary(certCheckS);
-            else certTrustStore.setSummary(getString(R.string.found_check));
+                boolean keyCertGood2 = FTPSSockets.checkKeyStore();
+                boolean trustCertGood2 = FTPSSockets.checkTrustStore();
+                if (keyCertGood2) certKeystore.setSummary(certCheckS);
+                if (trustCertGood2) certTrustStore.setSummary(certCheckS);
+                else certTrustStore.setSummary(getString(R.string.found_check));
 
-            StringBuilder sHidden = new StringBuilder();
-            for (int i = 0; i < pass.length(); i++) {
-                sHidden.append("*");
-            }
-            sp.edit().putString("certPassStar", sHidden.toString()).apply();
-            certPass.setText(""); // Don't keep here. It goes to encrypted pref. Show can add back.
-            if (keyCertGood2) {
-                certPass.setSummary(certCheckS + " " + sHidden);
+                StringBuilder sHidden = new StringBuilder();
+                for (int i = 0; i < pass.length(); i++) {
+                    sHidden.append("*");
+                }
+                sp.edit().putString("certPassStar", sHidden.toString()).apply();
+                certPass.setText(""); // Don't keep here. It goes to encrypted pref. Show can add back.
+                if (keyCertGood2) {
+                    certPass.setSummary(certCheckS + " " + sHidden);
+                } else {
+                    certPass.setSummary(getString(R.string.found_check) + " " + sHidden);
+                    certKeystore.setSummary(getString(R.string.found_check));
+                }
+                FsService.restart();
+                return true;
+            });
+            if (keyCertGood) {
+                certKeystore.setSummary(certCheckS);
+                String currentCertPassS = "";
+                if (certPass.getSummary() != null)
+                    currentCertPassS = certPass.getSummary().toString();
+                certPass.setSummary(certCheckS + " " + currentCertPassS);
             } else {
-                certPass.setSummary(getString(R.string.found_check) + " " + sHidden);
-                certKeystore.setSummary(getString(R.string.found_check));
+                certPass.setSummary(getString(R.string.found_check) + " " + sp.getString("certPassStar", ""));
             }
-            FsService.restart();
-            return true;
-        });
-        if (keyCertGood) {
-            certKeystore.setSummary(certCheckS);
-            String currentCertPassS = "";
-            if (certPass.getSummary() != null) currentCertPassS = certPass.getSummary().toString();
-            certPass.setSummary(certCheckS + " " + currentCertPassS);
-        } else {
-            certPass.setSummary(getString(R.string.found_check) + " " + sp.getString("certPassStar", ""));
-        }
-        if (trustCertGood) {
-            certTrustStore.setSummary(certCheckS);
+            if (trustCertGood) {
+                certTrustStore.setSummary(certCheckS);
+            }
         }
 
         // Shows and hides the certificate password in the UI as well as scrubbing from plain text.
         CheckBoxPreference certShowPass = findPref("certShowPassword");
-        certShowPass.setOnPreferenceChangeListener((preference, newValue) -> {
-            String checkMark;
-            if (FTPSSockets.checkKeyStore()) checkMark = certCheckS;
-            else if (FTPSSockets.getCertPass().length > 0)
-                checkMark = getString(R.string.found_check);
-            else checkMark = getString(R.string.found_x);
-            if ((boolean) newValue) {
-                certPass.setSummary(checkMark + " " + new String(FTPSSockets.getCertPass()));
-                certPass.setText(new String(FTPSSockets.getCertPass()));
-                certPass.getEditText().setInputType(EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-            } else {
-                certPass.setSummary(checkMark + " " + sp.getString("certPassStar", ""));
-                certPass.setText("");
-                certPass.getEditText().setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-            }
-            return true;
-        });
-        certShowPass.setChecked(false); // Default is hidden so keep it correctly checked.
+        if (certShowPass != null && certPass != null) {
+            certShowPass.setOnPreferenceChangeListener((preference, newValue) -> {
+                String checkMark;
+                if (FTPSSockets.checkKeyStore()) checkMark = certCheckS;
+                else if (FTPSSockets.getCertPass().length > 0)
+                    checkMark = getString(R.string.found_check);
+                else checkMark = getString(R.string.found_x);
+                if ((boolean) newValue) {
+                    certPass.setSummary(checkMark + " " + new String(FTPSSockets.getCertPass()));
+                    certPass.setText(new String(FTPSSockets.getCertPass()));
+                    certPass.setOnBindEditTextListener(editText -> editText.setInputType(
+                            EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+                    );
+                } else {
+                    certPass.setSummary(checkMark + " " + sp.getString("certPassStar", ""));
+                    certPass.setText("");
+                    certPass.setOnBindEditTextListener(editText -> editText.setInputType(
+                            InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                    );
+                }
+                return true;
+            });
+            certShowPass.setChecked(false); // Default is hidden so keep it correctly checked.
+        }
 
         // Enables need of the client certificate.
         CheckBoxPreference useClientCert = findPref("useClientCert");
-        if (Build.VERSION.SDK_INT <= 23) {
-            // Don't enable on Android 6 to avoid confusion there.
-            useClientCert.setChecked(false);
-            useClientCert.setEnabled(false);
+        if (useClientCert != null) {
+            if (Build.VERSION.SDK_INT <= 23) {
+                // Don't enable on Android 6 to avoid confusion there.
+                useClientCert.setChecked(false);
+                useClientCert.setEnabled(false);
+            }
+            useClientCert.setOnPreferenceChangeListener((preference, newValue) -> {
+                FsService.restart();
+                return true;
+            });
         }
-        useClientCert.setOnPreferenceChangeListener((preference, newValue) -> {
-            FsService.restart();
-            return true;
-        });
 
         // The allow/deny list where users can select to allow or deny IPs.
         MultiSelectListPreference ipList = findPref("ip_list");
-        Set<String> list = FsSettings.getIPList();
-        Set<String> allowList = FsSettings.getAllowList();
-        CharSequence[] cs = new CharSequence[0];
-        cs = list.toArray(cs);
-        Arrays.sort(cs);
-        ipList.setEntries(cs);
-        ipList.setEntryValues(cs);
-        ipList.setDefaultValue(allowList);
-        ipList.setOnPreferenceChangeListener((preference, newValue) -> {
-            HashSet<CharSequence> csNew = (HashSet<CharSequence>) newValue;
-            Set<String> failList = FsSettings.getFailList();
-            Set<String> newList = new ArraySet<>();
-            newList.addAll(failList);
-            boolean failListSave = false;
-            ArraySet<String> allows = new ArraySet<>();
-            for (CharSequence newValueCS : csNew) {
-                String newValueS = newValueCS.toString();
-                allows.add(newValueS);
-                if (!failList.isEmpty() && failList.contains(newValueS)) {
-                    // Its being allowed so remove from fail list
-                    newList.remove(newValueS);
-                    failListSave = true;
+        if (ipList != null) {
+            Set<String> list = FsSettings.getIPList();
+            Set<String> allowList = FsSettings.getAllowList();
+            CharSequence[] cs = new CharSequence[0];
+            cs = list.toArray(cs);
+            Arrays.sort(cs);
+            ipList.setEntries(cs);
+            ipList.setEntryValues(cs);
+            ipList.setDefaultValue(allowList);
+            ipList.setOnPreferenceChangeListener((preference, newValue) -> {
+                HashSet<CharSequence> csNew = (HashSet<CharSequence>) newValue;
+                Set<String> failList = FsSettings.getFailList();
+                Set<String> newList = new ArraySet<>();
+                newList.addAll(failList);
+                boolean failListSave = false;
+                ArraySet<String> allows = new ArraySet<>();
+                for (CharSequence newValueCS : csNew) {
+                    String newValueS = newValueCS.toString();
+                    allows.add(newValueS);
+                    if (!failList.isEmpty() && failList.contains(newValueS)) {
+                        // Its being allowed so remove from fail list
+                        newList.remove(newValueS);
+                        failListSave = true;
+                    }
                 }
-            }
-            if (failListSave) FsSettings.putFailList(newList);
-            putAllowList(allows);
-            return true;
-        });
-
-        // Helps the list to get updated without recreating the UI.
-        PreferenceScreen prefScreenAdvanced = findPref("preference_screen_advanced");
-        prefScreenAdvanced.setOnPreferenceClickListener(preference -> {
-            updateIPListWithChangesFromOtherSettings();
-            return true;
-        });
+                if (failListSave) FsSettings.putFailList(newList);
+                putAllowList(allows);
+                return true;
+            });
+        }
 
         // Allows user to manually add an IP or a small to large group of IPs using *.
         EditTextPreference manualAddIP = findPref("manuallyAddIP");
-        manualAddIP.setOnPreferenceChangeListener((preference, newValue) -> {
-            Set<String> list2 = FsSettings.getIPList();
-            Set<String> newList = new ArraySet<>();
-            String address = (String) newValue;
-            if (address.isEmpty()) return true; // don't allow empty
-            if (!list2.contains(address)) {
-                char c = address.charAt(0);
-                if (Character.isLetterOrDigit(c)) address = File.separator + address;
-                newList.add(address);
-                newList.addAll(list2);
-                FsSettings.putIPList(newList);
-                updateIPListWithChangesFromOtherSettings();
-            }
-            return true;
-        });
+        if (manualAddIP != null) {
+            manualAddIP.setOnPreferenceChangeListener((preference, newValue) -> {
+                Set<String> list2 = FsSettings.getIPList();
+                Set<String> newList = new ArraySet<>();
+                String address = (String) newValue;
+                if (address.isEmpty()) return true; // don't allow empty
+                if (!list2.contains(address)) {
+                    char c = address.charAt(0);
+                    if (Character.isLetterOrDigit(c)) address = File.separator + address;
+                    newList.add(address);
+                    newList.addAll(list2);
+                    FsSettings.putIPList(newList);
+                    updateIPListWithChangesFromOtherSettings();
+                }
+                return true;
+            });
+        }
 
         // Clears all IPs from the allow/deny list that are not selected as allowed.
         CheckBoxPreference clearUnusedIPs = findPref("clearUnusedIPs");
-        clearUnusedIPs.setOnPreferenceChangeListener((preference, newValue) -> {
-            if ((boolean) newValue) {
-                // Can simply replace with the allow list as that's all that will be left
-                Set<String> allowList1 = FsSettings.getAllowList();
-                FsSettings.putIPList(allowList1);
-                updateIPListWithChangesFromOtherSettings();
-            }
-            new Handler().postDelayed(() -> clearUnusedIPs.setChecked(false), 1000);
-            return true;
-        });
+        if (clearUnusedIPs != null) {
+            clearUnusedIPs.setOnPreferenceChangeListener((preference, newValue) -> {
+                if ((boolean) newValue) {
+                    // Can simply replace with the allow list as that's all that will be left
+                    Set<String> allowList1 = FsSettings.getAllowList();
+                    FsSettings.putIPList(allowList1);
+                    updateIPListWithChangesFromOtherSettings();
+                }
+                new Handler().postDelayed(() -> clearUnusedIPs.setChecked(false), 1000);
+                return true;
+            });
+        }
 
         // Deny all IPs except for ones that are user selected as allowed.
         CheckBoxPreference denyUntil = findPref("denyUntilAllowed");
-        denyUntil.setOnPreferenceChangeListener((preference, newValue) -> {
-            CheckBoxPreference denyOnFailed = findPref("denyOnFailedLogins");
-            if ((boolean) newValue) {
-                denyOnFailed.setChecked(false);
-                denyOnFailed.setEnabled(false);
-            } else {
-                denyOnFailed.setChecked(false);
-                denyOnFailed.setEnabled(true);
+        if (denyUntil != null) {
+            denyUntil.setOnPreferenceChangeListener((preference, newValue) -> {
+                CheckBoxPreference denyOnFailed = findPref("denyOnFailedLogins");
+                if (denyOnFailed != null) {
+                    if ((boolean) newValue) {
+                        denyOnFailed.setChecked(false);
+                        denyOnFailed.setEnabled(false);
+                    } else {
+                        denyOnFailed.setChecked(false);
+                        denyOnFailed.setEnabled(true);
+                    }
+                }
+                return true;
+            });
+            if (denyUntil.isChecked()) {
+                CheckBoxPreference denyOnFailed = findPref("denyOnFailedLogins");
+                if (denyOnFailed != null) {
+                    denyOnFailed.setChecked(false);
+                    denyOnFailed.setEnabled(false);
+                }
             }
-            return true;
-        });
-        if (denyUntil.isChecked()) {
-            CheckBoxPreference denyOnFailed = findPref("denyOnFailedLogins");
-            denyOnFailed.setChecked(false);
-            denyOnFailed.setEnabled(false);
         }
 
         // Deny IPs when they fail on username or password too many times.
         CheckBoxPreference denyOnFailed = findPref("denyOnFailedLogins");
-        denyOnFailed.setOnPreferenceChangeListener((preference, newValue) -> {
-            if ((boolean) newValue) {
+        if (denyOnFailed != null && denyUntil != null) {
+            denyOnFailed.setOnPreferenceChangeListener((preference, newValue) -> {
+                if ((boolean) newValue) {
+                    denyUntil.setChecked(false);
+                    denyUntil.setEnabled(false);
+                } else {
+                    denyUntil.setChecked(false);
+                    denyUntil.setEnabled(true);
+                }
+                return true;
+            });
+            if (denyOnFailed.isChecked()) {
                 denyUntil.setChecked(false);
                 denyUntil.setEnabled(false);
-            } else {
-                denyUntil.setChecked(false);
-                denyUntil.setEnabled(true);
             }
-            return true;
-        });
-        if (denyOnFailed.isChecked()) {
-            denyUntil.setChecked(false);
-            denyUntil.setEnabled(false);
         }
 
         // Used to require TLS implicit only
         CheckBoxPreference disablePlainPort = findPref("disablePlainPort");
-        disablePlainPort.setOnPreferenceChangeListener((preference, newValue) -> {
-            CheckBoxPreference disablePlainNotExplicit = findPref("disablePlainNotExplicit");
-            if ((boolean) newValue) {
-                disablePlainNotExplicit.setChecked(false);
-                disablePlainNotExplicit.setEnabled(false);
-            } else {
-                disablePlainNotExplicit.setChecked(false);
-                disablePlainNotExplicit.setEnabled(true);
+        if (disablePlainPort != null) {
+            disablePlainPort.setOnPreferenceChangeListener((preference, newValue) -> {
+                CheckBoxPreference disablePlainNotExplicit = findPref("disablePlainNotExplicit");
+                if (disablePlainNotExplicit != null) {
+                    if ((boolean) newValue) {
+                        disablePlainNotExplicit.setChecked(false);
+                        disablePlainNotExplicit.setEnabled(false);
+                    } else {
+                        disablePlainNotExplicit.setChecked(false);
+                        disablePlainNotExplicit.setEnabled(true);
+                    }
+                }
+                FsService.restart();
+                return true;
+            });
+            if (disablePlainPort.isChecked()) {
+                CheckBoxPreference disablePlainNotExplicit = findPref("disablePlainNotExplicit");
+                if (disablePlainNotExplicit != null) {
+                    disablePlainNotExplicit.setChecked(false);
+                    disablePlainNotExplicit.setEnabled(false);
+                }
             }
-            FsService.restart();
-            return true;
-        });
-        if (disablePlainPort.isChecked()) {
-            CheckBoxPreference disablePlainNotExplicit = findPref("disablePlainNotExplicit");
-            disablePlainNotExplicit.setChecked(false);
-            disablePlainNotExplicit.setEnabled(false);
         }
 
         // Used to disable plain connections but allow TLS explicit connections. Explicit starts off
         // as a plain connection.
         CheckBoxPreference disablePlainNotExplicit = findPref("disablePlainNotExplicit");
-        disablePlainNotExplicit.setOnPreferenceChangeListener((preference, newValue) -> {
-            if ((boolean) newValue) {
+        if (disablePlainNotExplicit != null && disablePlainPort != null) {
+            disablePlainNotExplicit.setOnPreferenceChangeListener((preference, newValue) -> {
+                if ((boolean) newValue) {
+                    disablePlainPort.setChecked(false);
+                    disablePlainPort.setEnabled(false);
+                } else {
+                    disablePlainPort.setChecked(false);
+                    disablePlainPort.setEnabled(true);
+                }
+                FsService.restart();
+                return true;
+            });
+            if (disablePlainNotExplicit.isChecked()) {
                 disablePlainPort.setChecked(false);
                 disablePlainPort.setEnabled(false);
-            } else {
-                disablePlainPort.setChecked(false);
-                disablePlainPort.setEnabled(true);
             }
-            FsService.restart();
-            return true;
-        });
-        if (disablePlainNotExplicit.isChecked()) {
-            disablePlainPort.setChecked(false);
-            disablePlainPort.setEnabled(false);
         }
 
         MultiSelectListPreference limitTLSProtocols = findPref("limitTLSProtocols");
-        final CharSequence[] tlsProtocols = FTPSSockets.getSupportedProtocols();
-        limitTLSProtocols.setEntries(tlsProtocols);
-        limitTLSProtocols.setEntryValues(tlsProtocols);
-        limitTLSProtocols.setOnPreferenceChangeListener((preference, newValue) -> {
-            HashSet<CharSequence> csNew = (HashSet<CharSequence>) newValue;
-            Set<String> newList = new ArraySet<>();
-            for (CharSequence newValueCS : csNew) {
-                String newValueS = newValueCS.toString();
-                newList.add(newValueS);
-            }
-            putProtocolList(newList);
-            FsService.restart();
-            return true;
-        });
+        if (limitTLSProtocols != null) {
+            final CharSequence[] tlsProtocols = FTPSSockets.getSupportedProtocols();
+            limitTLSProtocols.setEntries(tlsProtocols);
+            limitTLSProtocols.setEntryValues(tlsProtocols);
+            limitTLSProtocols.setOnPreferenceChangeListener((preference, newValue) -> {
+                HashSet<CharSequence> csNew = (HashSet<CharSequence>) newValue;
+                Set<String> newList = new ArraySet<>();
+                for (CharSequence newValueCS : csNew) {
+                    String newValueS = newValueCS.toString();
+                    newList.add(newValueS);
+                }
+                putProtocolList(newList);
+                FsService.restart();
+                return true;
+            });
+        }
     }
 
     /*
@@ -870,6 +1002,7 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
      */
     private void updateUsersPref() {
         Preference manageUsersPref = findPref("manage_users");
+        if (manageUsersPref == null) return;
         List<FtpUser> users = FsSettings.getUsers();
         switch (users.size()) {
             case 0:
@@ -892,6 +1025,7 @@ public class PreferenceFragment extends android.preference.PreferenceFragment {
     private void updateRunningState() {
         Resources res = getResources();
         TwoStatePreference runningPref = findPref("running_switch");
+        if (runningPref == null) return;
         if (FsService.isRunning()) {
             runningPref.setChecked(true);
             // Fill in the FTP server address
