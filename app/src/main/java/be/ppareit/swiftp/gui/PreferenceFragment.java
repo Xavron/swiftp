@@ -259,38 +259,6 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
             }
         }
 
-        final CheckBoxPreference newScoped = findPref("newScopedStorage");
-        if (newScoped != null && writeExternalStoragePref != null) {
-            if (sp.getBoolean("NewScopedStorageUpgradeCheck", true)) {
-                // Don't break use if "write external storage" was used before the app update as the original
-                // code it now fully uses isn't compat with the newer one and would see major issues.
-                // Runs one time only on update as pref won't be checked after clean install / wipe.
-                // Code is executed on app start which happens automatically after app update.
-                if (writeExternalStoragePref.isChecked()) { // needs to be true to not break use
-                    sp.edit().putBoolean("AllowNewScopedStorage", true).apply();
-                    sp.edit().putBoolean("NewScopedStorageUpgradeCheck", false).apply();
-                    writeExtMultiUserUpgradePath();
-                }
-            }
-
-            if (Util.useScopedStorage()) {
-                // Do not allow mixing of old setting with the new one!
-                newScoped.setChecked(true);
-                writeExternalStoragePref.setChecked(false);
-                writeExternalStoragePref.setEnabled(false);
-            } else {
-                newScoped.setChecked(false);
-            }
-            newScoped.setTitle(newScoped.getTitle() + " -> " + getString(R.string.manage_users_label));
-            newScoped.setOnPreferenceChangeListener((preference, newValue) -> {
-                writeExternalStoragePref.setChecked(false);
-                writeExternalStoragePref.setEnabled(!((boolean) newValue));
-                sp.edit().putBoolean("AllowNewScopedStorage", (boolean) newValue).apply();
-                Util.resetScoped();
-                return true;
-            });
-        }
-
         final ListPreference batterySaver = findPref("battery_saver");
         if (batterySaver != null && wakelockPref != null) {
             // val 0 HIGH is always on wake locks + wake lock setting enabled (high battery, smooth)
@@ -322,6 +290,37 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
                 return true;
             });
         }
+
+        final CheckBoxPreference useScopedStorage = findPref("useScopedStorage");
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(App.getAppContext());
+        if (sp.getBoolean("NewScopedStorageUpgradeCheck", true)) {
+            // Don't break use if "write external storage" was used before the app update as the original
+            // code it now fully uses isn't compat with the newer one and would see major issues.
+            // Runs one time only on update as pref won't be checked after clean install / wipe.
+            // Code is executed on app start which happens automatically after app update.
+            if (writeExternalStoragePref.isChecked()) { // needs to be true to not break use
+                sp.edit().putBoolean("UseScopedStorage", true).apply();
+                sp.edit().putBoolean("NewScopedStorageUpgradeCheck", false).apply();
+                writeExtMultiUserUpgradePath();
+            }
+        }
+
+        if (Util.useScopedStorage()) {
+            // Do not allow mixing of old setting with the new one!
+            useScopedStorage.setChecked(true);
+            writeExternalStoragePref.setChecked(false);
+            writeExternalStoragePref.setEnabled(false);
+        } else {
+            useScopedStorage.setChecked(false);
+        }
+        useScopedStorage.setOnPreferenceChangeListener((preference, newValue) -> {
+            writeExternalStoragePref.setChecked(false);
+            writeExternalStoragePref.setEnabled(!((boolean) newValue));
+            sp.edit().putBoolean("UseScopedStorage", (boolean) newValue).apply();
+            Util.resetScoped();
+
+            return true;
+        });
 
         ListPreference themePref = findPref("theme");
         if (themePref != null) {
