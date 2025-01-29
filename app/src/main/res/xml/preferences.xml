@@ -129,7 +129,7 @@ along with SwiFTP.  If not, see <http://www.gnu.org/licenses/>.
                     android:defaultValue="@string/writeNewExternalStorage_default"
                     android:drawableStart="@drawable/ic_shared_dir"
                     android:drawableLeft="@drawable/ic_shared_dir"
-                    android:key="newScopedStorage"
+                    android:key="useScopedStorage"
                     android:title="@string/writeExternalStorage_label"
                     app:iconSpaceReserved="false" />
 
