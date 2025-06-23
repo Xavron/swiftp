@@ -126,11 +126,12 @@ along with SwiFTP.  If not, see <http://www.gnu.org/licenses/>.
                     app:iconSpaceReserved="false" />
 
                 <CheckBoxPreference
-                    android:defaultValue="@string/writeNewExternalStorage_default"
+                    android:defaultValue="@string/useScopedStorage_default"
                     android:drawableStart="@drawable/ic_shared_dir"
                     android:drawableLeft="@drawable/ic_shared_dir"
                     android:key="useScopedStorage"
-                    android:title="@string/writeExternalStorage_label"
+                    android:title="@string/use_scoped_storage_label"
+                    android:summary="@string/use_scope_storage_summary"
                     app:iconSpaceReserved="false" />
 
                 <ListPreference
@@ -142,13 +143,22 @@ along with SwiFTP.  If not, see <http://www.gnu.org/licenses/>.
                     android:title="@string/battery_saver_setting_title"
                     app:iconSpaceReserved="false" />
 
+            </PreferenceCategory>
+
+            <PreferenceCategory
+                android:key="settings"
+                android:title="@string/logging">
                 <CheckBoxPreference
-                    android:defaultValue="@string/writeNewExternalStorage_default"
+                    android:defaultValue="@string/enableLogging_default"
                     android:drawableStart="@drawable/ic_shared_dir"
                     android:drawableLeft="@drawable/ic_shared_dir"
                     android:key="enableLogging"
                     android:title="@string/enable_logging"
                     app:iconSpaceReserved="false" />
+
+                <Preference
+                    android:key="logs"
+                    android:title="@string/manage_log_label" />
 
             </PreferenceCategory>
 
@@ -329,10 +339,6 @@ along with SwiFTP.  If not, see <http://www.gnu.org/licenses/>.
         <Preference
             android:key="about"
             android:title="@string/about_label"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="logs"
-            android:title="@string/manage_log_label"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

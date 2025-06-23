@@ -195,15 +195,23 @@ https://github.com/ppareit/swiftp/issues .\n\n
 
     <!-- since 3.1 -->
     <string name="battery_saver_setting_title">Battery Saver</string>
-    <string name="enable_logging">Enable logging</string>
-    <string name="anon_max_conn">Max simultaneous connections</string>
+    <string name="battery_saver_desc">NOTE: You *must* manually restart server after changing.</string>
     <string name="bs_high">HIGH</string>
     <string name="bs_low">LOW</string>
     <string name="bs_deep">DEEP</string>
-    <string name="manage_anon_label">Manage anonymous…</string>
-    <string name="manage_log_label">Log…</string>
     <string name="shortcut_on">Quick on</string>
 
+    <string name="use_scoped_storage_label">Use scoped storage</string>
+    <string name="use_scope_storage_summary">Make use of scoped storage, this is needed for recent Android devices. Choose the folders to which you want read/write access in Manage Users…</string>
+
+    <string name="logging">Logging</string>
+    <string name="enable_logging">Enable logging</string>
+    <string name="manage_log_label">Show logs…</string>
+    <string name="clear">Clear log</string>
+    <string name="display_logcat">Display Logcat</string>
+
+    <string name="anon_max_conn">Max simultaneous connections</string>
+    <string name="manage_anon_label">Manage anonymous…</string>
     <string name="found_check">&#10004;</string>
     <string name="found_check_green">&#9989;</string>
     <string name="found_x">&#10007;</string>
