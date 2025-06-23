@@ -51,7 +51,15 @@ public class CmdRMD extends FtpCmd implements Runnable {
             final String path = sessionThread.getWorkingDir().getPath();
             final String chroot = sessionThread.getChrootDir().toString();
             final String finalParam = paramCheck(param, path, chroot);
-            DocumentFile docFileToRemove = FileUtil.getDocumentFile(path + File.separator + finalParam);
+            String finalP2 = !param.startsWith(File.separator) ? File.separator + param : param;
+            DocumentFile docFileToRemove;
+
+            if (path.contains(param) && param.contains(File.separator)) {
+                // Workaround for clients that are still on last working dir when RMD is used.
+                docFileToRemove = FileUtil.getDocumentFile(chroot + finalP2);
+            } else {
+                docFileToRemove = FileUtil.getDocumentFile(path + File.separator + finalParam);
+            }
 
             mainblock:
             {
@@ -140,15 +148,23 @@ public class CmdRMD extends FtpCmd implements Runnable {
     private String paramCheck(String param, String path, String chroot) {
         String p2 = path.replaceFirst(chroot, "");
         String s = param;
-        if (s.startsWith(File.separator)) s = s.substring(1);
-        if (s.endsWith(File.separator)) s = s.substring(s.length() - 1);
+        if (s.startsWith(File.separator) && !p2.startsWith(File.separator)) {
+            s = s.substring(1); // WINSCP #1; FZ, and SamsungFiles don't use this.
+        }
+        if (s.endsWith(File.separator)) {
+            s = s.substring(s.length() - 1);
+        }
         if (s.contains(File.separator)) {
             String s1 = s.substring(0, s.lastIndexOf(File.separator));
-            if (p2.contains(s1)) return s.substring(s.lastIndexOf(File.separator) + 1); // wscp subs
-            if (p2.isEmpty()) return param; // wscp same root dir
+            if (p2.contains(s1)) {
+                return s.substring(s.lastIndexOf(File.separator) + 1); // wscp subs // WINSCP #3 - this is used only w/o #1 in use
+            }
+            if (p2.isEmpty()) {
+                return param; // wscp same root dir; WINSCP #2 - This is used with #1 in use and #3 is not used., SamsungFiles w/#1
+            }
             return param.replaceFirst(p2, ""); // wscp subs
         }
-        return s; // fz all, wscp root dir
+        return s; // fz all, wscp root dir, SamsungFiles last
     }
 
     /**
