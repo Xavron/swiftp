@@ -72,10 +72,6 @@ public class MainActivity extends AppCompatActivity {
             requestReadWritePermissions();
         }
 
-        if (!haveNotiPermissions()) {
-            requestNotiPermissions();
-        }
-
         if (App.isFreeVersion() && App.isPaidVersionInstalled()) {
             Cat.d("Running demo while paid is installed");
             AlertDialog ad = new AlertDialog.Builder(this)
