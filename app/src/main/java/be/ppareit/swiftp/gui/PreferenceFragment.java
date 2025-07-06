@@ -298,6 +298,7 @@ public class PreferenceFragment extends PreferenceFragmentCompat {
             // code it now fully uses isn't compat with the newer one and would see major issues.
             // Runs one time only on update as pref won't be checked after clean install / wipe.
             // Code is executed on app start which happens automatically after app update.
+            if (writeExternalStoragePref == null) return;
             if (writeExternalStoragePref.isChecked()) { // needs to be true to not break use
                 sp.edit().putBoolean("UseScopedStorage", true).apply();
                 sp.edit().putBoolean("NewScopedStorageUpgradeCheck", false).apply();
