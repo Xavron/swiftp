@@ -117,21 +117,6 @@ public class MainActivity extends AppCompatActivity {
         requestPermissions(permissions, PERMISSIONS_REQUEST_CODE);
     }
 
-    private boolean haveNotiPermissions() {
-        if (VERSION.SDK_INT >= 33) {
-            return checkSelfPermission(POST_NOTIFICATIONS) == PERMISSION_GRANTED
-                    && checkSelfPermission(POST_NOTIFICATIONS) == PERMISSION_GRANTED;
-        } else {
-            return true;
-        }
-    }
-
-    private void requestNotiPermissions() {
-        if (VERSION.SDK_INT < 33) return;
-        String[] permissions = new String[]{POST_NOTIFICATIONS};
-        requestPermissions(permissions, PERMISSIONS_REQUEST_CODE);
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
