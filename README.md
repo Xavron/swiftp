@@ -1,4 +1,4 @@
-My repo will be archived as I'm done. With no further breaking changes, it should work for another 5-10 years or so of newer Android versions without any changes made. Just build. On newer Android Studio versions run Android Studio's updater when prompted, and install. Android Studio may contain bugs causing issues. Newer changes of newer Android Studio versions may require changes to be made in the project files. Someone trying to build w/o knowledge should try to stick to an Android Studio version available around end of 2025 for the easiest way.
+My repo will be archived as I'm done. With no further breaking changes, it should work for another 5-10 years or so of newer Android versions without any changes made. Just build and install. On newer Android Studio versions run Android Studio's updater when prompted, and install. Android Studio may contain bugs causing issues. Newer changes of newer Android Studio versions may require changes to be made in the project files. Someone trying to build w/o knowledge should try to stick to an Android Studio version available around end of 2025 for the easiest way.
 
 FTP Server (swiftp)
 ===================
